@@ -19,13 +19,17 @@ packaging = ">=24.1,<25"
 setuptools = ">=75.6.0"
 
 [feature.lint.dependencies]
-clang-format = "*"
+# versions are based on requirements-lintrunner.txt
+clang-format = "18.1.8"
+ruff = ">=0.5.4,<0.6"
+black = "24.2.0"
+isort = ">=5.13.2,<6"
 [feature.lint.pypi-dependencies]
-lintrunner = ">=0.12.5, <0.13"
-lintrunner-adapters = ">=0.12.4, <0.13"
+lintrunner = ">=0.12.5"
+lintrunner-adapters = ">=0.12.4"
 [feature.lint.tasks]
-lintrunner-run = "lintrunner"
 lintrunner-init = "lintrunner init"
+lintrunner-run = "lintrunner --all-files"
 
 [tasks]
 build-debug = "python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Debug --build --parallel --cmake_extra_defines=CMAKE_CXX_STANDARD=17 --compile_no_warning_as_error"
