@@ -20,10 +20,9 @@ setuptools = ">=75.6.0"
 
 [feature.lint.dependencies]
 # versions are based on requirements-lintrunner.txt
-clang-format = "18.1.8"
-ruff = ">=0.5.4,<0.6"
-black = "24.2.0"
-isort = ">=5.13.2,<6"
+clang-format = ">=19.1.5"
+ruff = ">=0.9.10"
+black = "==24.2.0"
 [feature.lint.pypi-dependencies]
 lintrunner = ">=0.12.5"
 lintrunner-adapters = ">=0.12.4"
