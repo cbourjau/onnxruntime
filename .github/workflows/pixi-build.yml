@@ -42,3 +42,5 @@ jobs:
           environments: ${{ matrix.environment }}
       - name: Install repository
         run: pixi run install-debug
+      - name: Run test
+        run: pixi run test

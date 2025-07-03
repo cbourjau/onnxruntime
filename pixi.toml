@@ -45,6 +45,7 @@ build-release = "python tools/ci_build/build.py --update --build_wheel --enable_
 [tasks]
 install-debug = { cmd = "python -m pip install build/Debug/dist/onnxruntime*.whl --no-deps --no-build-isolation"}
 install-release = { cmd = "python -m pip install build/Release/dist/onnxruntime*.whl --no-deps --no-build-isolation"}
+test = "pytest /Users/c.bourjau/repos/onnxruntime/onnxruntime/test/python/test_sign.py"
 
 [environments]
 lint = ["lint"]
