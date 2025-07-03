@@ -22,7 +22,7 @@ jobs:
         run: pixi run lintrunner-run
 
   build-and-install:
-    name: build-and-install
+    name: Build, install, test
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -40,6 +40,8 @@ jobs:
         uses: prefix-dev/setup-pixi@ba3bb36eb2066252b2363392b7739741bb777659
         with:
           environments: ${{ matrix.environment }}
+      - name: Build
+        run: pixi run build-debug
       - name: Install repository
         run: pixi run install-debug
       - name: Run test
