@@ -5,17 +5,25 @@ channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64"]
 
 [dependencies]
+python = "*"
+setuptools = ">=75.6.0"
+pytest = ">=8.4.1,<9"
+onnx = ">=1.14.0,<2"
+numpy = "*"
+pip = "*"
+
+[feature.build.dependencies]
 cmake = ">=3.30.2,<4"
 make = "*"
 ninja = "*"
 numpy = "*"
 pip = "*"
-python = "*"
 libdate = ">=3.0.1,<4"
 c-compiler = ">=1.8.0,<2"
 cxx-compiler = ">=1.8.0,<2"
 libprotobuf = "3.21.*"
 packaging = ">=24.1,<25"
+python = "*"
 setuptools = ">=75.6.0"
 
 [feature.lint.dependencies]
@@ -30,12 +38,14 @@ lintrunner-adapters = ">=0.12.4"
 lintrunner-init = "lintrunner init"
 lintrunner-run = "lintrunner --all-files"
 
-[tasks]
-build-debug = "python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Debug --build --parallel --cmake_extra_defines=CMAKE_CXX_STANDARD=17 --compile_no_warning_as_error"
-install-debug = { cmd = "python -m pip install build/Debug/dist/onnxruntime*.whl", depends-on = ["build-debug"] }
-
+[feature.build.tasks]
+build-debug = 'python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Debug --build --parallel --cmake_extra_defines="onnxruntime_BUILD_UNIT_TESTS=OFF" --compile_no_warning_as_error'
 build-release = "python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Release --build --parallel --cmake_extra_defines=CMAKE_CXX_STANDARD=17 --compile_no_warning_as_error"
-install-release = { cmd = "python -m pip install build/Release/dist/onnxruntime*.whl", depends-on = ["build-release"] }
+
+[tasks]
+install-debug = { cmd = "python -m pip install build/Debug/dist/onnxruntime*.whl --no-deps --no-build-isolation"}
+install-release = { cmd = "python -m pip install build/Release/dist/onnxruntime*.whl --no-deps --no-build-isolation"}
 
 [environments]
 lint = ["lint"]
+build = {features=["build"], no-default-feature = true}
