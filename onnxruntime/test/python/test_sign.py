@@ -1,7 +1,9 @@
+import numpy as np
 import onnx
 from onnx import TensorProto, helper
+
 import onnxruntime as ort
-import numpy as np
+
 
 def make_sign_model() -> onnx.ModelProto:
     node = helper.make_node(
@@ -25,6 +27,6 @@ def make_sign_model() -> onnx.ModelProto:
 def test_sign():
     sess = ort.InferenceSession(make_sign_model().SerializeToString())
     x = np.asarray([2147483649, 2147483649], np.int64)
-    (res, ) = sess.run(None, {"x": x})
+    (res,) = sess.run(None, {"x": x})
 
     np.testing.assert_array_equal(res, np.sign(x))

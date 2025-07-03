@@ -1,17 +1,12 @@
+import numpy as np
 import onnx
 from onnx import TensorProto, helper
+
 import onnxruntime as ort
-import numpy as np
 
 
 def make_clip_model() -> onnx.ModelProto:
-    max_node = helper.make_node(
-        op_type="Constant",
-        domain="ai.onnx",
-        inputs=[],
-        outputs=["max"],
-        value_int=0
-    )
+    max_node = helper.make_node(op_type="Constant", domain="ai.onnx", inputs=[], outputs=["max"], value_int=0)
     clip_node = helper.make_node(
         op_type="Clip",
         domain="ai.onnx",
@@ -33,6 +28,6 @@ def make_clip_model() -> onnx.ModelProto:
 def test_clip():
     sess = ort.InferenceSession(make_clip_model().SerializeToString())
     x = np.asarray([2147483649, 2147483649], np.int64)
-    (res, ) = sess.run(None, {"x": x})
+    (res,) = sess.run(None, {"x": x})
 
     np.testing.assert_array_equal(res, np.clip(x, min=None, max=0))
