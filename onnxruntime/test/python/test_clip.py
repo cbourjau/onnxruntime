@@ -3,17 +3,25 @@ from onnx import TensorProto, helper
 import onnxruntime as ort
 import numpy as np
 
-def make_sign_model() -> onnx.ModelProto:
-    node = helper.make_node(
-        op_type="Sign",
+
+def make_clip_model() -> onnx.ModelProto:
+    max_node = helper.make_node(
+        op_type="Constant",
         domain="ai.onnx",
-        inputs=["x"],
+        inputs=[],
+        outputs=["max"],
+        value_int=0
+    )
+    clip_node = helper.make_node(
+        op_type="Clip",
+        domain="ai.onnx",
+        inputs=["x", "", "max"],
         outputs=["y"],
     )
 
     graph = helper.make_graph(
-        nodes=[node],
-        name="TestSign",
+        nodes=[max_node, clip_node],
+        name="TestClip",
         inputs=[helper.make_value_info("x", type_proto=helper.make_tensor_type_proto(TensorProto.INT64, [2]))],
         outputs=[helper.make_value_info("y", type_proto=helper.make_tensor_type_proto(TensorProto.INT64, [2]))],
     )
@@ -22,9 +30,9 @@ def make_sign_model() -> onnx.ModelProto:
     return model
 
 
-def test_sign():
-    sess = ort.InferenceSession(make_sign_model().SerializeToString())
+def test_clip():
+    sess = ort.InferenceSession(make_clip_model().SerializeToString())
     x = np.asarray([2147483649, 2147483649], np.int64)
     (res, ) = sess.run(None, {"x": x})
 
-    np.testing.assert_array_equal(res, np.sign(x))
+    np.testing.assert_array_equal(res, np.clip(x, min=None, max=0))

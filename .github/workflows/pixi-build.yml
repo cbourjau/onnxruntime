@@ -42,7 +42,7 @@ jobs:
           environments: ${{ matrix.environment }}
       - name: Build
         run: pixi run build-debug
-      - name: Install repository
+      - name: Install
         run: pixi run install-debug
-      - name: Run test
+      - name: Test
         run: pixi run test

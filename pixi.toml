@@ -11,6 +11,7 @@ pytest = ">=8.4.1,<9"
 onnx = ">=1.14.0,<2"
 numpy = "*"
 pip = "*"
+sympy = "*"
 
 [feature.build.dependencies]
 cmake = ">=3.30.2,<4"
@@ -45,7 +46,7 @@ build-release = "python tools/ci_build/build.py --update --build_wheel --enable_
 [tasks]
 install-debug = { cmd = "python -m pip install build/Debug/dist/onnxruntime*.whl --no-deps --no-build-isolation"}
 install-release = { cmd = "python -m pip install build/Release/dist/onnxruntime*.whl --no-deps --no-build-isolation"}
-test = "pytest onnxruntime/test/python/test_sign.py"
+test = "pytest onnxruntime/test/python/test_clip.py onnxruntime/test/python/test_sign.py"
 
 [environments]
 lint = ["lint"]
