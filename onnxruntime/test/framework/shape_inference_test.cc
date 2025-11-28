@@ -78,7 +78,18 @@ TEST_F(ShapeInferenceTest, BasicTest) {
 
 namespace {
 struct MyCustomKernelWithOptionalInput {
-  MyCustomKernelWithOptionalInput(const OrtKernelInfo* /*info*/) {
+  MyCustomKernelWithOptionalInput(const OrtKernelInfo* info) {
+    Ort::ConstKernelInfo k_info(info);
+
+    Ort::KeyValuePairs kvp = k_info.GetConfigEntries();
+
+    EXPECT_NE(nullptr, kvp.GetValue("session.inter_op.allow_spinning"));
+    EXPECT_STREQ("0", kvp.GetValue("session.inter_op.allow_spinning"));
+
+    EXPECT_NE(nullptr, kvp.GetValue("session.intra_op.allow_spinning"));
+    EXPECT_STREQ("0", kvp.GetValue("session.intra_op.allow_spinning"));
+
+    EXPECT_EQ(nullptr, kvp.GetValue("__not__exist__"));
   }
 
   OrtStatusPtr ComputeV2(OrtKernelContext* /* context */) const {
@@ -129,6 +140,9 @@ const ORTCHAR_T* const OPTIONAL_INPUT_CUSTOM_OP_MODEL_URI_2 = ORT_TSTR("testdata
 // that inference proceeds for all of the outputs when absent optional inputs are present
 TEST(ShapeInferenceCustomOpTest, custom_op_optional_input_inference_test) {
   MyCustomOpWithOptionalInput custom_op{onnxruntime::kCpuExecutionProvider};
+  custom_op.InferOutputShapeFn = [](const OrtCustomOp* /*op*/, OrtShapeInferContext* /*ctx*/) -> OrtStatusPtr {
+    return nullptr;
+  };
 
   const auto& env = GetEnvironment();
 
@@ -140,6 +154,8 @@ TEST(ShapeInferenceCustomOpTest, custom_op_optional_input_inference_test) {
   SessionOptions sess_opts;
   sess_opts.inter_op_param.thread_pool_size = 1;
   sess_opts.intra_op_param.thread_pool_size = 1;
+  ASSERT_STATUS_OK(sess_opts.config_options.AddConfigEntry("session.inter_op.allow_spinning", "0"));
+  ASSERT_STATUS_OK(sess_opts.config_options.AddConfigEntry("session.intra_op.allow_spinning", "0"));
 
   InferenceSessionWrapper session{sess_opts, env, OPTIONAL_INPUT_CUSTOM_OP_MODEL_URI_2};
   ASSERT_STATUS_OK(session.AddCustomOpDomains(AsSpan(op_domains)));
