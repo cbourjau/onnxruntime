@@ -40,7 +40,7 @@ lintrunner-init = "lintrunner init"
 lintrunner-run = "lintrunner --all-files"
 
 [feature.build.tasks]
-build-debug = 'python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Debug --build --parallel --cmake_extra_defines="onnxruntime_BUILD_UNIT_TESTS=OFF" --compile_no_warning_as_error'
+build-debug = 'python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Debug --build --parallel --cmake_extra_defines="-Donnxruntime_BUILD_UNIT_TESTS=OFF -DCMAKE_EXPORT_COMPILE_COMMANDS=ON" --compile_no_warning_as_error'
 build-release = "python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Release --build --parallel --cmake_extra_defines=CMAKE_CXX_STANDARD=17 --compile_no_warning_as_error"
 
 [tasks]
