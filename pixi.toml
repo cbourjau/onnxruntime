@@ -5,7 +5,7 @@ channels = ["conda-forge"]
 platforms = ["osx-arm64", "linux-64"]
 
 [dependencies]
-python = "*"
+python = "3.13.*"  # pytorch (test dep not available for 3.14 yet)
 setuptools = ">=75.6.0"
 numpy = "*"
 pip = "*"
@@ -22,7 +22,6 @@ c-compiler = ">=1.8.0,<2"
 cxx-compiler = ">=1.8.0,<2"
 libprotobuf = "3.21.*"
 packaging = ">=24.1,<25"
-python = "*"
 setuptools = ">=75.6.0"
 
 [feature.lint.dependencies]
@@ -40,18 +39,18 @@ lintrunner-run = "lintrunner --all-files"
 [feature.test.dependencies]
 onnx = "*"
 pytest = ">=8.4.1,<9"
-[feature.test.tasks]
-test = "pytest onnxruntime/test/python/test_clip.py onnxruntime/test/python/test_sign.py"
+parameterized = ">=0.9.0,<0.10"
 
 [feature.build.tasks]
 build-debug = 'CMAKE_EXPORT_COMPILE_COMMANDS=1 python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Debug --build --parallel --compile_no_warning_as_error'
 build-release = "python tools/ci_build/build.py --update --build_wheel --enable_pybind --build_dir build --config Release --build --parallel --cmake_extra_defines=CMAKE_CXX_STANDARD=17 --compile_no_warning_as_error"
+test = "python ./tools/ci_build/build.py --test --build_dir build/"
 
 [tasks]
 install-debug = { cmd = "python -m pip install build/Debug/dist/onnxruntime*.whl --no-deps --no-build-isolation"}
 install-release = { cmd = "python -m pip install build/Release/dist/onnxruntime*.whl --no-deps --no-build-isolation"}
 
 [environments]
-lint = ["lint"]
+lint = {features=["lint"], no-default-feature = true}
 build = {features=["build"], no-default-feature = true}
-test = ["test"]
+default = ["test"]
