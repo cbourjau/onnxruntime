@@ -25,9 +25,10 @@ jobs:
     name: Build, install, test
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os:
+          - macos-15-intel
           - ubuntu-latest
           - macos-latest
     steps:

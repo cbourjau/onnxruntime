@@ -2,7 +2,7 @@
 name = "onnxruntime"
 description = "onnxruntime"
 channels = ["conda-forge"]
-platforms = ["osx-arm64", "linux-64"]
+platforms = ["osx-64", "osx-arm64", "linux-64"]
 
 [dependencies]
 python = "3.13.*"  # pytorch (test dep not available for 3.14 yet)
