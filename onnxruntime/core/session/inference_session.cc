@@ -34,6 +34,7 @@
 #include "core/framework/tensor_type_and_shape.h"
 #include "core/framework/op_kernel_context_internal.h"
 #include "core/framework/ort_value_pattern_planner.h"
+#include "core/framework/plugin_ep_stream.h"
 #include "core/framework/transform_layout_functions.h"
 #include "core/framework/utils.h"
 #include "core/graph/graph_viewer.h"
@@ -162,7 +163,6 @@ static bool AreAllComputeNodesAssignedToCudaOrJsOrDmlEpWebGpuEp(const Graph& gra
     // Empty node provider means CPU EP
     if (!node_provider.empty() &&
         !(node_provider == kCudaExecutionProvider ||
-          node_provider == kRocmExecutionProvider ||
           node_provider == kJsExecutionProvider ||
           node_provider == kWebGpuExecutionProvider ||
           node_provider == kDmlExecutionProvider) &&
@@ -1288,6 +1288,32 @@ common::Status InferenceSession::ApplyUpdates(const OrtModel& model_editor_api_m
   return model_->MainGraph().UpdateUsingModelEditorApiModel(model_editor_api_model);
 }
 
+#if !defined(ORT_MINIMAL_BUILD)
+static std::unique_ptr<OrtEpAssignedSubgraph> CreateEpAssignedSubgraph(const Graph& graph,
+                                                                       const ComputeCapability& capability,
+                                                                       const std::string& ep_name) {
+  auto assigned_subgraph = std::make_unique<OrtEpAssignedSubgraph>();
+  assigned_subgraph->ep_name = ep_name;
+
+  gsl::span<NodeIndex> node_indices = capability.sub_graph->nodes;
+
+  for (NodeIndex node_index : node_indices) {
+    const Node* node = graph.GetNode(node_index);
+    if (node != nullptr) {
+      auto assigned_node = std::make_unique<OrtEpAssignedNode>();
+      assigned_node->name = node->Name();
+      assigned_node->domain = node->Domain();
+      assigned_node->op_type = node->OpType();
+
+      assigned_subgraph->nodes.push_back(assigned_node.get());
+      assigned_subgraph->nodes_storage.push_back(std::move(assigned_node));
+    }
+  }
+
+  return assigned_subgraph;
+}
+#endif  // !defined(ORT_MINIMAL_BUILD)
+
 common::Status InferenceSession::TransformGraph(onnxruntime::Graph& graph, bool saving_model_in_ort_format) {
   // The transformer order:
   // 1. Ensure we inline as many functions as possible. We refer to it as Ahead Of Time (AOT) function inlining.
@@ -1302,12 +1328,29 @@ common::Status InferenceSession::TransformGraph(onnxruntime::Graph& graph, bool 
   // 8. Repeat steps 5 to 7 depending on the graph optimizations loop level.
   // 9. insert copy nodes (required transformer).
 
+  OnPartitionAssignmentFunction on_partition_assignment_fn;
+#if !defined(ORT_MINIMAL_BUILD)
+  bool record_ep_graph_assignment =
+      session_options_.config_options.GetConfigOrDefault(kOrtSessionOptionsRecordEpGraphAssignmentInfo, "0") == "1";
+  if (record_ep_graph_assignment) {
+    on_partition_assignment_fn = [this](const Graph& graph, const ComputeCapability& compute_capability,
+                                        const std::string& ep_name) {
+      std::unique_ptr<OrtEpAssignedSubgraph> assigned_subgraph = CreateEpAssignedSubgraph(graph,
+                                                                                          compute_capability,
+                                                                                          ep_name);
+
+      this->ep_graph_assignment_info_.push_back(assigned_subgraph.get());
+      this->ep_graph_assignment_info_storage_.push_back(std::move(assigned_subgraph));
+    };
+  }
+#endif  // !defined(ORT_MINIMAL_BUILD)
+
   // Create GraphOptimizerRegistry instance for providing predefined graph optimizers and selection functions for EPs to lookup
   auto graph_optimizer_registry = std::make_unique<GraphOptimizerRegistry>(&session_options_,
                                                                            execution_providers_.Get(onnxruntime::kCpuExecutionProvider),
                                                                            session_logger_);
   GraphPartitioner partitioner(kernel_registry_manager_, execution_providers_, std::move(graph_optimizer_registry),
-                               check_load_cancellation_fn_);
+                               check_load_cancellation_fn_, on_partition_assignment_fn);
 
   // Run Ahead Of time function inlining
   if (const bool disable_aot_function_inlining =
@@ -1319,6 +1362,29 @@ common::Status InferenceSession::TransformGraph(onnxruntime::Graph& graph, bool 
                                                                   kernel_registry_manager_,
                                                                   *session_logger_));
   }
+
+  // We choose to convert initializers into OrtValues before partitioning here so plug-in EPs could
+  // take advantage of the initializers being in OrtValue format and not to deal with protobuf.
+  //
+  // The initializers data is transferred to an OrtValue. The original TensorProto is replaced
+  // with a TensorProto that has the same data type, shape and name. However, its external data
+  // is used in a non-standard way. The location is set to a string constant utils::kTensorProtoMemoryAddressTag,
+  // The file offset is set to the address of the OrtValue's data buffer,  and the length is set to the size of the
+  // OrtValue's data buffer. Because this external location is non-standard, onnx code can not handle it. For this reason,
+  // we do not convert them at the graph constructor because Node::ToProto() reconstructs Graph instances for subgraphs
+  // and we do not want to have initializers converted at shape inference time, as Resolve() is called from EPs when
+  // op_types are not assigned yet.
+  //
+  // If any transformations are applied later, they would not introduce any in-memory initializers,
+  // type and shape inference would run only on any newly added nodes and any new initializers
+  // will be converted at session finalization time.
+  //
+  // The conversion is performed using the following steps (within ConvertInitializersIntoOrtValues())
+  //   constexpr const bool use_tensor_buffer_true = true;
+  //   auto tensor_proto_to_add = utils::TensorToTensorProto(ort_value.Get<Tensor>(), tensor_proto.name(),
+  //                                                        use_tensor_buffer_true);
+  //   ORT_RETURN_IF_ERROR(graph.ReplaceInitializedTensor(tensor_proto_to_add, ort_value));
+  ORT_RETURN_IF_ERROR_SESSIONID_(graph.ConvertInitializersIntoOrtValues());
 
   auto apply_transformer_once = [](const GraphTransformer& transformer, const logging::Logger& logger,
                                    Graph& graph, bool* is_graph_modified = nullptr) -> onnxruntime::common::Status {
@@ -2269,7 +2335,7 @@ common::Status InferenceSession::Initialize() {
                                "Session initialization canceled due to user request.");
       }
 
-      // Currently graph capture is only considered by CUDA EP, TRT EP, ROCM EP and JS EP.
+      // Currently graph capture is only considered by CUDA EP, TRT EP and JS EP.
       //
       // Check for CUDA EP:
       // If the CUDA EP is part of the providers list for this session AND
@@ -2289,16 +2355,9 @@ common::Status InferenceSession::Initialize() {
       // All the "compute" graph nodes have been assigned to the JS EP,
       // Then the JS EP is cached for triggering a ReplayGraph() in Run().
       //
-      // Check for ROCM EP:
-      // If the ROCM EP is part of the providers list for this session AND
-      // The ROCM EP is configured to do a graph capture AND
-      // All the "compute" graph nodes have been assigned to the ROCM EP,
-      // Then the ROCM EP is cached for triggering a ReplayGraph() in Run().
-      //
       std::vector<const char*> graph_support_ep_list = {
           onnxruntime::kTensorrtExecutionProvider,
           onnxruntime::kCudaExecutionProvider,
-          onnxruntime::kRocmExecutionProvider,
           onnxruntime::kJsExecutionProvider,
           onnxruntime::kWebGpuExecutionProvider,
           onnxruntime::kDmlExecutionProvider};
@@ -2321,7 +2380,6 @@ common::Status InferenceSession::Initialize() {
           }
 
           if (strcmp(target_ep->Type().c_str(), onnxruntime::kCudaExecutionProvider) == 0 ||
-              strcmp(target_ep->Type().c_str(), onnxruntime::kRocmExecutionProvider) == 0 ||
               strcmp(target_ep->Type().c_str(), onnxruntime::kJsExecutionProvider) == 0 ||
               strcmp(target_ep->Type().c_str(), onnxruntime::kWebGpuExecutionProvider) == 0 ||
               strcmp(target_ep->Type().c_str(), onnxruntime::kDmlExecutionProvider) == 0) {
@@ -2512,6 +2570,12 @@ common::Status InferenceSession::Initialize() {
   ORT_CATCH(const NotImplementedException& ex) {
     ORT_HANDLE_EXCEPTION([&]() {
       status = ORT_MAKE_STATUS(ONNXRUNTIME, NOT_IMPLEMENTED, "Exception during initialization: ", ex.what());
+      LOGS(*session_logger_, ERROR) << status.ErrorMessage();
+    });
+  }
+  ORT_CATCH(const OnnxRuntimeException& ex) {
+    ORT_HANDLE_EXCEPTION([&]() {
+      status = Status(ex.Category(), ex.Code(), MakeString("Exception during initialization: ", ex.what()));
       LOGS(*session_logger_, ERROR) << status.ErrorMessage();
     });
   }
@@ -3030,6 +3094,15 @@ Status InferenceSession::Run(const RunOptions& run_options,
 
 #ifdef ORT_ENABLE_STREAM
       DeviceStreamCollectionHolder device_stream_collection_holder(session_state_.get());
+      if (run_options.sync_stream != nullptr) {
+        if (session_options_.execution_mode != ExecutionMode::ORT_SEQUENTIAL) {
+          // XXX: Not tested in Parallel execution mode and disabled at this time.
+          LOGS(*session_logger_, WARNING) << "Setting sync stream is not supported in parallel execution mode.";
+        } else {
+          ORT_RETURN_IF_ERROR_SESSIONID_(
+              device_stream_collection_holder.p_->SetStreamOverride(run_options.sync_stream));
+        }
+      }
 #endif
 
       if (retval.IsOK()) {
@@ -3136,7 +3209,6 @@ Status InferenceSession::Run(const RunOptions& run_options,
   // are needed before replaying the captured graph, here run N inference runs recursively until graph captured,
   // so that users just need one session run to capture the graph.
   // N is defined in min_num_runs_before_cuda_graph_capture_ for CUDA EP,
-  // N is defined in min_num_runs_before_hip_graph_capture_ for ROCM EP,
   // and the value could be different for other EP.
   if (retval.IsOK() && cached_execution_provider_for_graph_replay_.IsGraphCaptureEnabled() &&
       cached_execution_provider_for_graph_replay_.AllowGraphCaptureOnRun(graph_annotation_id) &&
@@ -3445,6 +3517,48 @@ common::Status InferenceSession::GetEpDeviceForInputs(InlinedVector<const OrtEpD
     assert(!node_info_vec.empty());
     // If we have an input that is not consumed by any node,
     // including nodes in subgraphs, then we return nullptr.
+    const auto* p_node = node_info_vec.front().p_node;
+    if (p_node != nullptr) {
+      const auto ep_name = p_node->GetExecutionProviderType();
+      auto it = std::find_if(available_eps.begin(), available_eps.end(), [&ep_name](const OrtEpDevice* entry) {
+        return entry->ep_name == ep_name;
+      });
+      ep_devices.push_back(it != available_eps.end() ? *it : nullptr);
+    } else {
+      ep_devices.push_back(nullptr);
+    }
+  }
+
+  return Status::OK();
+#endif
+}
+
+common::Status InferenceSession::GetEpDeviceForOutputs(InlinedVector<const OrtEpDevice*>& ep_devices) const {
+  ep_devices.clear();
+
+#if defined(ORT_MINIMAL_BUILD)
+  return common::Status(common::ONNXRUNTIME, common::FAIL,
+                        "GetEpDeviceForOutputs is not available in a minimal build.");
+#else
+  if (!is_inited_) {
+    return common::Status(common::ONNXRUNTIME, common::INVALID_ARGUMENT, "Session has not been initialized.");
+  }
+
+  std::pair<common::Status, const OutputDefList*> outputs = GetModelOutputs();
+
+  ORT_RETURN_IF_ERROR(outputs.first);
+
+  const auto& def_list = *outputs.second;
+  ep_devices.reserve(def_list.size());
+
+  const auto& available_eps = environment_.GetOrtEpDevices();
+
+  for (const auto* def : def_list) {
+    InlinedVector<SessionState::NodeInfo> node_info_vec;
+    ORT_RETURN_IF_ERROR(session_state_->GetOutputNodeInfo(def->Name(), node_info_vec));
+    assert(!node_info_vec.empty());
+    // If we have an output that is not produced by any node,
+    // then we return nullptr.
     const auto* p_node = node_info_vec.front().p_node;
     if (p_node != nullptr) {
       const auto ep_name = p_node->GetExecutionProviderType();
