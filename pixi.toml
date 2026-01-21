@@ -13,6 +13,7 @@ sympy = "*"
 
 [feature.build.dependencies]
 cmake = ">=3.30.2"
+python = "3.13.*"
 make = "*"
 ninja = "*"
 numpy = "*"
@@ -37,6 +38,7 @@ lintrunner-init = "lintrunner init"
 lintrunner-run = "lintrunner --all-files"
 
 [feature.test.dependencies]
+python = "3.13.*"
 onnx = "*"
 pytest = ">=8.4.1,<9"
 parameterized = ">=0.9.0,<0.10"
