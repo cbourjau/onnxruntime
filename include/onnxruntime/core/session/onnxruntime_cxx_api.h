@@ -209,6 +209,12 @@ std::string GetBuildInfoString();
 std::vector<std::string> GetAvailableProviders();
 
 /// <summary>
+/// This is a C++ wrapper for OrtApi::SetGlobalRandomSeed() that throws on error.
+/// </summary>
+/// <param name="seed">The process-wide random seed.</param>
+void SetGlobalRandomSeed(int64_t seed);
+
+/// <summary>
 /// This returns a reference to the ORT C Model Editor API. Used if building or augmenting a model at runtime.
 /// </summary>
 /// <returns>ORT C Model Editor API reference</returns>

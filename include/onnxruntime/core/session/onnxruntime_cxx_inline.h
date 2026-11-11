@@ -3562,6 +3562,10 @@ inline std::vector<std::string> GetAvailableProviders() {
   return available_providers;
 }
 
+inline void SetGlobalRandomSeed(int64_t seed) {
+  ThrowOnError(GetApi().SetGlobalRandomSeed(seed));
+}
+
 template <typename TOp, typename TKernel, bool WithStatus>
 void CustomOpBase<TOp, TKernel, WithStatus>::GetSessionConfigs(std::unordered_map<std::string, std::string>& out,
                                                                ConstSessionOptions options) const {

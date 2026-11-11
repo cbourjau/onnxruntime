@@ -7768,6 +7768,24 @@ struct OrtApi {
   ORT_API2_STATUS(EpDevice_GetMemoryCapacity, _In_ const OrtEpDevice* ep_device,
                   _In_ OrtDeviceMemoryType memory_type,
                   _Out_opt_ uint64_t* total_memory_bytes, _Out_opt_ uint64_t* available_memory_bytes);
+
+  /** \brief Set the process-wide random seed.
+   *
+   * Operators that generate random numbers and have no `seed` attribute, such as RandomNormal, RandomUniform, and
+   * Dropout, derive their random number generators from this seed. Depending on the operator and execution provider,
+   * the generator is derived when the session is created or when the operator runs. To make the outputs of such
+   * operators reproducible, set the seed before creating the session.
+   *
+   * Without a call to this function, the seed is derived from the system clock when ONNX Runtime first uses it.
+   * The seed is shared by all environments and sessions in the process.
+   *
+   * \param[in] seed The seed value.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(SetGlobalRandomSeed, _In_ int64_t seed);
 };
 
 /*

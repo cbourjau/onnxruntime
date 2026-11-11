@@ -3610,6 +3610,26 @@ TEST(CApiTest, get_build_info_string) {
   ASSERT_FALSE(build_info_string.empty());
 }
 
+TEST(CApiTest, SetGlobalRandomSeed) {
+  // The model sums the outputs of RandomUniform nodes with and without a `seed` attribute.
+  auto run_with_seed = [](int64_t seed) {
+    Ort::SetGlobalRandomSeed(seed);
+    Ort::Session session(*ort_env, ORT_TSTR("testdata/transform/cse/cse_random.onnx"), Ort::SessionOptions{});
+    std::array<float, 5> x{};
+    std::array<int64_t, 1> shape{5};
+    auto memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+    Ort::Value input = Ort::Value::CreateTensor<float>(memory_info, x.data(), x.size(), shape.data(), shape.size());
+    const char* input_name = "x";
+    const char* output_name = "Result";
+    auto outputs = session.Run(Ort::RunOptions{}, &input_name, &input, 1, &output_name, 1);
+    const float* result = outputs[0].GetTensorData<float>();
+    return std::vector<float>(result, result + 5);
+  };
+
+  EXPECT_EQ(run_with_seed(42), run_with_seed(42));
+  EXPECT_NE(run_with_seed(42), run_with_seed(43));
+}
+
 TEST(CApiTest, TestSharedAllocators) {
   // prepare inputs
   std::vector<Input<float>> inputs(1);

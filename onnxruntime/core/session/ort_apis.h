@@ -759,6 +759,8 @@ ORT_API_STATUS_IMPL(EpDevice_GetMemoryCapacity, _In_ const OrtEpDevice* ep_devic
                     _In_ OrtDeviceMemoryType memory_type,
                     _Out_opt_ uint64_t* total_memory_bytes, _Out_opt_ uint64_t* available_memory_bytes);
 
+ORT_API_STATUS_IMPL(SetGlobalRandomSeed, _In_ int64_t seed);
+
 ORT_API_STATUS_IMPL(CreateSharedAllocator, _In_ OrtEnv* env, _In_ const OrtEpDevice* ep_device,
                     _In_ OrtDeviceMemoryType mem_type, _In_ OrtAllocatorType allocator_type,
                     _In_opt_ const OrtKeyValuePairs* allocator_options,
