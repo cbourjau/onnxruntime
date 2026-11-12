@@ -51,6 +51,13 @@ from ._exceptions import (
     NotImplemented,
     RuntimeException,
 )
+from ._model_package import (
+    ModelPackage,
+    ModelPackageComponentContext,
+    ModelPackageContext,
+    ModelPackageOptions,
+    ModelPackageWriteMode,
+)
 from ._options import OrtArenaCfg, RunOptions, SessionOptions
 from ._session import (
     InferenceSession,
@@ -152,6 +159,11 @@ __all__ = [
     "ModelLoadCanceled",
     "ModelLoaded",
     "ModelMetadata",
+    "ModelPackage",
+    "ModelPackageComponentContext",
+    "ModelPackageContext",
+    "ModelPackageOptions",
+    "ModelPackageWriteMode",
     "ModelRequiresCompilation",
     "NoModel",
     "NoSuchFile",

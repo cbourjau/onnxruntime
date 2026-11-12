@@ -155,7 +155,7 @@ class InferenceSession:
         **kwargs: Any,
     ) -> None:
         if isinstance(path_or_bytes, (str, os.PathLike)):
-            self._model: str | bytes = os.fspath(path_or_bytes)
+            self._model: str | bytes | None = os.fspath(path_or_bytes)
         elif isinstance(path_or_bytes, bytes):
             self._model = path_or_bytes
         else:
@@ -201,8 +201,23 @@ class InferenceSession:
             native_options.add_config_entry(
                 "optimization.disable_specified_optimizers", ",".join(self._disabled_optimizers)
             )
-        self._sess = _C.Session(self._model, native_options)
-        self._session_options = SessionOptions._from_native(self._sess.session_options(), sess_options)
+        self._set_session(_C.Session(self._model, native_options), sess_options)
+
+    @classmethod
+    def _from_session(cls, sess: _C.Session, sess_options: SessionOptions | None) -> InferenceSession:
+        """Return a session that wraps `sess`, which was not created from a model; it cannot be re-created."""
+        session = cls.__new__(cls)
+        session._model = None
+        session._sess_options = sess_options
+        session._enable_fallback = False
+        session._disabled_optimizers = []
+        session._fallback_providers = []
+        session._set_session(sess, sess_options or SessionOptions())
+        return session
+
+    def _set_session(self, sess: _C.Session, sess_options: SessionOptions) -> None:
+        self._sess = sess
+        self._session_options = SessionOptions._from_native(sess.session_options(), sess_options)
         self._inputs = _node_args(self._sess.inputs)
         self._outputs = _node_args(self._sess.outputs)
         self._overridable_initializers = _node_args(self._sess.overridable_initializers)
@@ -263,6 +278,7 @@ class InferenceSession:
         provider_options: Sequence[Mapping[Any, Any]] | None = None,
     ) -> None:
         """Re-create the session with other execution providers."""
+        self._check_can_be_recreated("set_providers")
         self._create_session(providers, provider_options)
 
     def disable_fallback(self) -> None:
@@ -271,7 +287,15 @@ class InferenceSession:
 
     def enable_fallback(self) -> None:
         """Enable retrying with the CPU execution provider after failures of other execution providers."""
+        self._check_can_be_recreated("enable_fallback")
         self._enable_fallback = True
+
+    def _check_can_be_recreated(self, method: str) -> None:
+        if self._model is None:
+            raise NotImplementedError(
+                f"'{method}' is not supported by sessions of model packages; create a new session with "
+                "'ModelPackageComponentContext.create_session' instead"
+            )
 
     def _validate_input(self, feed_input_names: Sequence[str]) -> None:
         missing = [i.name for i in self._inputs if i.name not in feed_input_names and not i.type.startswith("optional")]

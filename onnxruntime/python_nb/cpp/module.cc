@@ -24,6 +24,7 @@
 #include "adapter.h"
 #include "devices.h"
 #include "onnxruntime_cxx_api.h"
+#include "model_package_bindings.h"
 #include "session.h"
 #include "value.h"
 
@@ -265,5 +266,6 @@ NB_MODULE(_C, m) {
   BindValue(m);
   BindDevices(m);
   BindSession(m);
+  BindModelPackage(m);
   BindAdapterFormat(m);
 }

@@ -56,19 +56,6 @@ OrtStatus* CallPython(F&& f) noexcept {
   }
 }
 
-// Python objects that native session options refer to.
-struct SessionOptionsState {
-  nb::object selection_delegate;
-  nb::object ep_context_data_read_func;
-  size_t ep_context_data_max_size = 0;
-  nb::list keep_alive;
-};
-
-struct SessionOptions {
-  Ort::SessionOptions options;
-  std::shared_ptr<SessionOptionsState> state = std::make_shared<SessionOptionsState>();
-};
-
 OrtStatus* ORT_API_CALL SelectEpDevices(const OrtEpDevice** ep_devices, size_t num_devices,
                                         const OrtKeyValuePairs* model_metadata,
                                         const OrtKeyValuePairs* runtime_metadata, const OrtEpDevice** selected,
@@ -144,12 +131,6 @@ struct EpContextData {
   const void* data;
   size_t size;
   bool valid = true;
-};
-
-struct Session {
-  Ort::Session session{nullptr};
-  // The state of the options the session was created with.
-  std::shared_ptr<SessionOptionsState> options_state;
 };
 
 template <typename GetName, typename GetType>
