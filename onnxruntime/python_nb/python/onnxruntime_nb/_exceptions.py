@@ -1,67 +1,67 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-"""Exceptions raised for errors reported by ONNX Runtime, named as in the pybind11 bindings."""
+"""Exceptions raised for errors reported by ONNX Runtime, named after `OrtErrorCode`."""
 
 # ruff: noqa: N818  # names match the pybind11 bindings
 
 
-class Fail(Exception):
+class Fail(RuntimeError):
     """Generic failure."""
 
 
-class InvalidArgument(Exception):
+class InvalidArgument(RuntimeError):
     """An argument, such as an input name, dtype, or shape, is invalid."""
 
 
-class NoSuchFile(Exception):
+class NoSuchFile(RuntimeError):
     """A file does not exist."""
 
 
-class NoModel(Exception):
+class NoModel(RuntimeError):
     """No model is loaded."""
 
 
-class EngineError(Exception):
+class EngineError(RuntimeError):
     """Error in the execution engine."""
 
 
-class RuntimeException(Exception):
+class RuntimeException(RuntimeError):
     """Error raised while running or initializing a session."""
 
 
-class InvalidProtobuf(Exception):
+class InvalidProtobuf(RuntimeError):
     """A model is not a valid protobuf message."""
 
 
-class ModelLoaded(Exception):
+class ModelLoaded(RuntimeError):
     """A model is already loaded."""
 
 
-class NotImplemented(Exception):
+class NotImplemented(RuntimeError):
     """A feature is not implemented."""
 
 
-class InvalidGraph(Exception):
+class InvalidGraph(RuntimeError):
     """The model graph is invalid."""
 
 
-class EPFail(Exception):
+class EPFail(RuntimeError):
     """Error in an execution provider."""
 
 
-class ModelLoadCanceled(Exception):
+class ModelLoadCanceled(RuntimeError):
     """Loading the model was canceled."""
 
 
-class ModelRequiresCompilation(Exception):
+class ModelRequiresCompilation(RuntimeError):
     """The model must be compiled before it can be run."""
 
 
-class NotFound(Exception):
+class NotFound(RuntimeError):
     """A requested item was not found."""
 
 
-class DeviceReset(Exception):
+class DeviceReset(RuntimeError):
     """A device was reset."""
 
 

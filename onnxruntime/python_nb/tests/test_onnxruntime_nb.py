@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+from pathlib import Path
+
 import numpy as np
 import onnx
 import onnxruntime_nb
@@ -55,11 +57,12 @@ def test_get_available_providers_matches_pybind():
     assert onnxruntime_nb.get_available_providers() == onnxruntime.get_available_providers()
 
 
-def test_names_match_pybind(model_path):
+def test_node_args_match_pybind(model_path):
     nb_session = onnxruntime_nb.InferenceSession(model_path)
     pb_session = onnxruntime.InferenceSession(model_path)
-    assert nb_session.input_names == [i.name for i in pb_session.get_inputs()]
-    assert nb_session.output_names == [o.name for o in pb_session.get_outputs()]
+    for getter in ("get_inputs", "get_outputs"):
+        actual = [(a.name, a.type, a.shape) for a in getattr(nb_session, getter)()]
+        assert actual == [(a.name, a.type, a.shape) for a in getattr(pb_session, getter)()]
 
 
 @pytest.mark.parametrize("output_names", [None, [], ["product"], ["product", "sum"]])
@@ -194,9 +197,10 @@ def test_cpu_provider(model_path, feeds, providers, provider_options):
     np.testing.assert_array_equal(session.run(None, feeds)[0], feeds["x"] + feeds["y"])
 
 
-def test_unknown_provider_raises(model_path):
-    with pytest.raises(onnxruntime_nb.InvalidArgument, match="Unknown provider name"):
-        onnxruntime_nb.InferenceSession(model_path, providers=["NoSuchExecutionProvider"])
+def test_unknown_provider_falls_back_to_cpu(model_path):
+    with pytest.warns(UserWarning, match="Unknown Provider Type: NoSuchExecutionProvider"):
+        session = onnxruntime_nb.InferenceSession(model_path, providers=["NoSuchExecutionProvider"])
+    assert session.get_providers() == ["CPUExecutionProvider"]
 
 
 def test_provider_options_length_mismatch_raises(model_path):
@@ -281,3 +285,118 @@ def test_set_tuning_results_of_unknown_provider(model_path, module):
     session.set_tuning_results(results)
     with pytest.raises(RuntimeError, match="Cannot find execution provider UnknownEP"):
         session.set_tuning_results(results, error_on_invalid=True)
+
+
+def test_run_with_ort_values(model_path, feeds):
+    session = onnxruntime_nb.InferenceSession(model_path)
+    inputs = {name: onnxruntime_nb.OrtValue.ortvalue_from_numpy(value) for name, value in feeds.items()}
+    outputs = session.run_with_ort_values(["product"], inputs)
+    assert all(isinstance(o, onnxruntime_nb.OrtValue) for o in outputs)
+    np.testing.assert_array_equal(outputs[0].numpy(), feeds["x"] * feeds["y"])
+
+
+@pytest.mark.parametrize("shape", [(3,), (2, 3), (0,), (0, 4), (4, 0)])
+def test_dlpack_round_trip_shares_memory(shape):
+    array = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
+    value = onnxruntime_nb.OrtValue.ortvalue_from_numpy(array)
+    for source in (value, value.__dlpack__()):
+        imported = onnxruntime_nb.OrtValue.from_dlpack(source)
+        assert imported.shape() == list(shape)
+        if array.size:
+            assert imported.data_ptr() == value.data_ptr()
+    np.testing.assert_array_equal(np.from_dlpack(value), array)
+
+
+class _InvalidDlpackProvider:
+    def __dlpack__(self):
+        return object()
+
+
+@pytest.mark.parametrize("source", [None, object(), _InvalidDlpackProvider()])
+def test_from_dlpack_rejects_invalid_sources(source):
+    with pytest.raises(TypeError, match="valid DLPack capsule"):
+        onnxruntime_nb.OrtValue.from_dlpack(source)
+
+
+def test_from_dlpack_rejects_consumed_capsule():
+    capsule = onnxruntime_nb.OrtValue.ortvalue_from_numpy(np.ones(2, dtype=np.float32)).__dlpack__()
+    onnxruntime_nb.OrtValue.from_dlpack(capsule)
+    with pytest.raises(TypeError, match="valid DLPack capsule"):
+        onnxruntime_nb.OrtValue.from_dlpack(capsule)
+
+
+@pytest.fixture
+def sessions(model_path):
+    """Two independent sessions of the model."""
+    return onnxruntime_nb.InferenceSession(model_path), onnxruntime_nb.InferenceSession(model_path)
+
+
+def _session_value(session):
+    return session.create_ortvalue_from_shape_and_type([2, 3], np.float32, "cpu")
+
+
+def test_session_value_is_usable_with_its_session(sessions, feeds):
+    session, _ = sessions
+    value = _session_value(session)
+    outputs = session.run(["sum"], {"x": value, "y": feeds["y"]})
+    np.testing.assert_array_equal(outputs[0], value.numpy() + feeds["y"])
+    binding = session.io_binding()
+    binding.bind_ortvalue_input("x", value)
+    binding.bind_ortvalue_output("sum", _session_value(session))
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        lambda session, value, feeds: session.run(None, {"x": value, "y": feeds["y"]}),
+        lambda session, value, feeds: session.run_with_ort_values(
+            None, {"x": value, "y": onnxruntime_nb.OrtValue.ortvalue_from_numpy(feeds["y"])}
+        ),
+        lambda session, value, feeds: session.io_binding().bind_ortvalue_input("x", value),
+        lambda session, value, feeds: session.io_binding().bind_ortvalue_output("sum", value),
+        lambda session, value, feeds: _session_value(session).update_inplace(value),
+    ],
+    ids=["run", "run_with_ort_values", "bind_input", "bind_output", "update_inplace"],
+)
+def test_session_value_is_rejected_by_other_sessions(sessions, feeds, use):
+    session, other = sessions
+    with pytest.raises(ValueError, match="session that created it|same session"):
+        use(other, _session_value(session), feeds)
+
+
+def test_binding_is_rejected_by_other_sessions(sessions):
+    session, other = sessions
+    with pytest.raises(ValueError, match="session that created it"):
+        other.run_with_iobinding(session.io_binding())
+
+
+def test_session_value_is_rejected_after_set_providers(model_path, feeds):
+    session = onnxruntime_nb.InferenceSession(model_path)
+    value = _session_value(session)
+    binding = session.io_binding()
+    session.set_providers(["CPUExecutionProvider"])
+    with pytest.raises(ValueError, match="session that created it"):
+        session.run(None, {"x": value, "y": feeds["y"]})
+    with pytest.raises(ValueError, match="session that created it"):
+        session.run_with_iobinding(binding)
+
+
+def test_session_options_of_session_include_options_from_model(monkeypatch):
+    monkeypatch.setenv("ORT_LOAD_CONFIG_FROM_MODEL", "1")
+    options = onnxruntime_nb.SessionOptions()
+    options.logid = "replaced by the defaults"
+    path = Path(__file__).parents[2] / "test" / "testdata" / "model_with_valid_ort_config_json.onnx"
+    session = onnxruntime_nb.InferenceSession(path, options)
+    session_options = session.get_session_options()
+    assert (session_options.inter_op_num_threads, session_options.intra_op_num_threads) == (5, 2)
+    assert session_options.enable_profiling
+    assert session_options.logid == ""
+    Path(session.end_profiling()).unlink()
+
+
+def test_profile_file_prefix_is_kept_while_profiling_is_disabled():
+    options = onnxruntime_nb.SessionOptions()
+    options.profile_file_prefix = "prefix"
+    options.enable_profiling = True
+    options.enable_profiling = False
+    assert options.profile_file_prefix == "prefix"

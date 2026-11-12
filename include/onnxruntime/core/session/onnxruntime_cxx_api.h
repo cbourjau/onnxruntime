@@ -1679,8 +1679,21 @@ struct ConstSessionOptionsImpl : Base<T> {
   bool HasConfigEntry(const char* config_key) const;         ///< Wraps OrtApi::HasSessionConfigEntry
   std::string GetConfigEntryOrDefault(const char* config_key, const std::string& def) const;
 
-  bool GetMemPatternEnabled() const;       ///< Wraps OrtApi::GetMemPatternEnabled
-  ExecutionMode GetExecutionMode() const;  ///< Wraps OrtApi::GetSessionExecutionMode
+  bool GetMemPatternEnabled() const;                               ///< Wraps OrtApi::GetMemPatternEnabled
+  ExecutionMode GetExecutionMode() const;                          ///< Wraps OrtApi::GetSessionExecutionMode
+  KeyValuePairs GetConfigEntries() const;                          ///< Wraps OrtApi::GetSessionOptionsConfigEntries
+  int GetIntraOpNumThreads() const;                                ///< Wraps OrtApi::GetIntraOpNumThreads
+  int GetInterOpNumThreads() const;                                ///< Wraps OrtApi::GetInterOpNumThreads
+  GraphOptimizationLevel GetGraphOptimizationLevel() const;        ///< Wraps OrtApi::GetSessionGraphOptimizationLevel
+  bool GetProfilingEnabled() const;                                ///< Wraps OrtApi::GetProfilingEnabled
+  std::basic_string<ORTCHAR_T> GetProfileFilePrefix() const;       ///< Wraps OrtApi::GetProfileFilePrefix
+  std::basic_string<ORTCHAR_T> GetOptimizedModelFilePath() const;  ///< Wraps OrtApi::GetOptimizedModelFilePath
+  bool GetCpuMemArenaEnabled() const;                              ///< Wraps OrtApi::GetCpuMemArenaEnabled
+  std::string GetLogId() const;                                    ///< Wraps OrtApi::GetSessionLogId
+  int GetLogSeverityLevel() const;                                 ///< Wraps OrtApi::GetSessionLogSeverityLevel
+  int GetLogVerbosityLevel() const;                                ///< Wraps OrtApi::GetSessionLogVerbosityLevel
+  bool GetPerSessionThreadsEnabled() const;                        ///< Wraps OrtApi::GetPerSessionThreadsEnabled
+  bool GetDeterministicComputeEnabled() const;                     ///< Wraps OrtApi::GetDeterministicComputeEnabled
 };
 
 template <typename T>
@@ -2053,6 +2066,8 @@ struct ConstSessionImpl : Base<T> {
   /// Wraps OrtApi::SessionGetProviderCount and OrtApi::SessionGetProviderName.
   std::vector<std::string> GetProviderNames() const;
   KeyValuePairs GetProviderOptions(size_t index) const;  ///< Wraps OrtApi::SessionGetProviderOptions
+  /// Copy of the options the session uses, without execution providers; wraps OrtApi::SessionGetSessionOptions.
+  SessionOptions GetSessionOptions() const;
   /// Tuning results as JSON; wraps OrtApi::SessionGetTuningResults.
   AllocatedStringPtr GetTuningResultsAllocated(OrtAllocator* allocator) const;
 

@@ -154,6 +154,16 @@ ORT_API_STATUS_IMPL(OrtApis::SetOptimizedModelFilePath, _In_ OrtSessionOptions* 
   return nullptr;
 }
 
+ORT_API_STATUS_IMPL(OrtApis::GetOptimizedModelFilePath, _In_ const OrtSessionOptions* options,
+                    _Outptr_ const ORTCHAR_T** out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.optimized_model_filepath.c_str();
+  return nullptr;
+  API_IMPL_END
+}
+
 // enable profiling for this session.
 ORT_API_STATUS_IMPL(OrtApis::EnableProfiling, _In_ OrtSessionOptions* options, _In_ const ORTCHAR_T* profile_file_prefix) {
   options->value.enable_profiling = true;
@@ -164,6 +174,25 @@ ORT_API_STATUS_IMPL(OrtApis::DisableProfiling, _In_ OrtSessionOptions* options) 
   options->value.enable_profiling = false;
   options->value.profile_file_prefix.clear();
   return nullptr;
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetProfilingEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.enable_profiling ? 1 : 0;
+  return nullptr;
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetProfileFilePrefix, _In_ const OrtSessionOptions* options,
+                    _Outptr_ const ORTCHAR_T** out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.profile_file_prefix.c_str();
+  return nullptr;
+  API_IMPL_END
 }
 
 // enable the memory pattern optimization.
@@ -201,10 +230,28 @@ ORT_API_STATUS_IMPL(OrtApis::DisableCpuMemArena, _In_ OrtSessionOptions* options
   return nullptr;
 }
 
+ORT_API_STATUS_IMPL(OrtApis::GetCpuMemArenaEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.enable_cpu_mem_arena ? 1 : 0;
+  return nullptr;
+  API_IMPL_END
+}
+
 ///< logger id to use for session output
 ORT_API_STATUS_IMPL(OrtApis::SetSessionLogId, _In_ OrtSessionOptions* options, const char* logid) {
   options->value.session_logid = logid;
   return nullptr;
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetSessionLogId, _In_ const OrtSessionOptions* options, _Outptr_ const char** out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.session_logid.c_str();
+  return nullptr;
+  API_IMPL_END
 }
 
 ///< logging function and optional logging param to use for session output
@@ -221,9 +268,27 @@ ORT_API_STATUS_IMPL(OrtApis::SetSessionLogVerbosityLevel, _In_ OrtSessionOptions
   return nullptr;
 }
 
+ORT_API_STATUS_IMPL(OrtApis::GetSessionLogVerbosityLevel, _In_ const OrtSessionOptions* options, _Out_ int* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.session_log_verbosity_level;
+  return nullptr;
+  API_IMPL_END
+}
+
 ORT_API_STATUS_IMPL(OrtApis::SetSessionLogSeverityLevel, _In_ OrtSessionOptions* options, int session_log_severity_level) {
   options->value.session_log_severity_level = session_log_severity_level;
   return nullptr;
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetSessionLogSeverityLevel, _In_ const OrtSessionOptions* options, _Out_ int* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.session_log_severity_level;
+  return nullptr;
+  API_IMPL_END
 }
 
 // Set Graph optimization level.
@@ -256,14 +321,60 @@ ORT_API_STATUS_IMPL(OrtApis::SetSessionGraphOptimizationLevel, _In_ OrtSessionOp
   return nullptr;
 }
 
+ORT_API_STATUS_IMPL(OrtApis::GetSessionGraphOptimizationLevel, _In_ const OrtSessionOptions* options,
+                    _Out_ GraphOptimizationLevel* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  switch (options->value.graph_optimization_level) {
+    case onnxruntime::TransformerLevel::Default:
+      *out = ORT_DISABLE_ALL;
+      break;
+    case onnxruntime::TransformerLevel::Level1:
+      *out = ORT_ENABLE_BASIC;
+      break;
+    case onnxruntime::TransformerLevel::Level2:
+      *out = ORT_ENABLE_EXTENDED;
+      break;
+    case onnxruntime::TransformerLevel::Level3:
+      *out = ORT_ENABLE_LAYOUT;
+      break;
+    case onnxruntime::TransformerLevel::MaxLevel:
+      *out = ORT_ENABLE_ALL;
+      break;
+    default:
+      return OrtApis::CreateStatus(ORT_FAIL, "graph_optimization_level has no GraphOptimizationLevel equivalent");
+  }
+  return nullptr;
+  API_IMPL_END
+}
+
 ORT_API_STATUS_IMPL(OrtApis::SetIntraOpNumThreads, _Inout_ OrtSessionOptions* options, int intra_op_num_threads) {
   options->value.intra_op_param.thread_pool_size = intra_op_num_threads;
   return nullptr;
 }
 
+ORT_API_STATUS_IMPL(OrtApis::GetIntraOpNumThreads, _In_ const OrtSessionOptions* options, _Out_ int* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.intra_op_param.thread_pool_size;
+  return nullptr;
+  API_IMPL_END
+}
+
 ORT_API_STATUS_IMPL(OrtApis::SetInterOpNumThreads, _Inout_ OrtSessionOptions* options, int inter_op_num_threads) {
   options->value.inter_op_param.thread_pool_size = inter_op_num_threads;
   return nullptr;
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetInterOpNumThreads, _In_ const OrtSessionOptions* options, _Out_ int* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.inter_op_param.thread_pool_size;
+  return nullptr;
+  API_IMPL_END
 }
 
 ORT_API_STATUS_IMPL(OrtApis::AddFreeDimensionOverride, _Inout_ OrtSessionOptions* options,
@@ -283,6 +394,15 @@ ORT_API_STATUS_IMPL(OrtApis::AddFreeDimensionOverrideByName, _Inout_ OrtSessionO
 ORT_API_STATUS_IMPL(OrtApis::DisablePerSessionThreads, _In_ OrtSessionOptions* options) {
   options->value.use_per_session_threads = false;
   return nullptr;
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetPerSessionThreadsEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.use_per_session_threads ? 1 : 0;
+  return nullptr;
+  API_IMPL_END
 }
 
 namespace {
@@ -645,6 +765,15 @@ ORT_API_STATUS_IMPL(OrtApis::AddExternalInitializersFromFilesInMemory, _In_ OrtS
 ORT_API_STATUS_IMPL(OrtApis::SetDeterministicCompute, _Inout_ OrtSessionOptions* options, bool value) {
   API_IMPL_BEGIN
   options->value.use_deterministic_compute = value;
+  return nullptr;
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetDeterministicComputeEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(options == nullptr, ORT_INVALID_ARGUMENT, "'options' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  *out = options->value.use_deterministic_compute ? 1 : 0;
   return nullptr;
   API_IMPL_END
 }

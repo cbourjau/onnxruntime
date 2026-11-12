@@ -7901,6 +7901,181 @@ struct OrtApi {
    * \since Version 1.33.
    */
   const char*(ORT_API_CALL* GetBuildDeviceString)(void);
+
+  /** \brief Get a copy of the session options a session uses.
+   *
+   * The copy reflects the changes ONNX Runtime made to the options while creating the session, e.g. options loaded
+   * from the model when the environment variable ORT_LOAD_CONFIG_FROM_MODEL is set to 1, or session configuration
+   * entries added by execution provider selection. The copy contains no execution providers and no custom op domains.
+   *
+   * \param[in] session The OrtSession instance.
+   * \param[out] out A copy of the session options. Must be released with OrtApi::ReleaseSessionOptions.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(SessionGetSessionOptions, _In_ const OrtSession* session, _Outptr_ OrtSessionOptions** out);
+
+  /** \brief Get the number of threads used to parallelize the execution within nodes.
+   *
+   * \param[in] options
+   * \param[out] out Set to the number of threads. 0 means the default number of threads is used.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::SetIntraOpNumThreads
+   */
+  ORT_API2_STATUS(GetIntraOpNumThreads, _In_ const OrtSessionOptions* options, _Out_ int* out);
+
+  /** \brief Get the number of threads used to parallelize the execution of the graph (across nodes).
+   *
+   * \param[in] options
+   * \param[out] out Set to the number of threads. 0 means the default number of threads is used.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::SetInterOpNumThreads
+   */
+  ORT_API2_STATUS(GetInterOpNumThreads, _In_ const OrtSessionOptions* options, _Out_ int* out);
+
+  /** \brief Get the graph optimization level.
+   *
+   * \param[in] options
+   * \param[out] out Set to the graph optimization level.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::SetSessionGraphOptimizationLevel
+   */
+  ORT_API2_STATUS(GetSessionGraphOptimizationLevel, _In_ const OrtSessionOptions* options,
+                  _Out_ GraphOptimizationLevel* out);
+
+  /** \brief Check if profiling is enabled in the session options.
+   *
+   * \param[in] options
+   * \param[out] out Set to 1 if profiling is enabled, 0 otherwise.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::EnableProfiling, OrtApi::DisableProfiling
+   */
+  ORT_API2_STATUS(GetProfilingEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out);
+
+  /** \brief Get the prefix of the profile file name.
+   *
+   * \param[in] options
+   * \param[out] out Set to the null-terminated prefix. It is owned by `options` and valid until `options` is modified
+   *                 or released.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::EnableProfiling
+   */
+  ORT_API2_STATUS(GetProfileFilePrefix, _In_ const OrtSessionOptions* options, _Outptr_ const ORTCHAR_T** out);
+
+  /** \brief Get the file path the optimized model is saved to.
+   *
+   * \param[in] options
+   * \param[out] out Set to the null-terminated path. It is empty if the optimized model is not saved. It is owned by
+   *                 `options` and valid until `options` is modified or released.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::SetOptimizedModelFilePath
+   */
+  ORT_API2_STATUS(GetOptimizedModelFilePath, _In_ const OrtSessionOptions* options, _Outptr_ const ORTCHAR_T** out);
+
+  /** \brief Check if the memory arena on CPU is enabled in the session options.
+   *
+   * \param[in] options
+   * \param[out] out Set to 1 if the memory arena on CPU is enabled, 0 otherwise.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::EnableCpuMemArena, OrtApi::DisableCpuMemArena
+   */
+  ORT_API2_STATUS(GetCpuMemArenaEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out);
+
+  /** \brief Get the session log id.
+   *
+   * \param[in] options
+   * \param[out] out Set to the null-terminated log id. It is owned by `options` and valid until `options` is modified
+   *                 or released.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::SetSessionLogId
+   */
+  ORT_API2_STATUS(GetSessionLogId, _In_ const OrtSessionOptions* options, _Outptr_ const char** out);
+
+  /** \brief Get the session log severity level.
+   *
+   * \param[in] options
+   * \param[out] out Set to the log severity level. -1 means the default logger's severity level is used.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::SetSessionLogSeverityLevel
+   */
+  ORT_API2_STATUS(GetSessionLogSeverityLevel, _In_ const OrtSessionOptions* options, _Out_ int* out);
+
+  /** \brief Get the session log verbosity level.
+   *
+   * \param[in] options
+   * \param[out] out Set to the log verbosity level.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::SetSessionLogVerbosityLevel
+   */
+  ORT_API2_STATUS(GetSessionLogVerbosityLevel, _In_ const OrtSessionOptions* options, _Out_ int* out);
+
+  /** \brief Check if the session uses its own thread pools.
+   *
+   * \param[in] options
+   * \param[out] out Set to 1 if the session uses per session thread pools, 0 if it uses the global thread pools.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::DisablePerSessionThreads
+   */
+  ORT_API2_STATUS(GetPerSessionThreadsEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out);
+
+  /** \brief Check if deterministic compute is enabled in the session options.
+   *
+   * \param[in] options
+   * \param[out] out Set to 1 if deterministic compute is enabled, 0 otherwise.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   *
+   * \see OrtApi::SetDeterministicCompute
+   */
+  ORT_API2_STATUS(GetDeterministicComputeEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out);
 };
 
 /*

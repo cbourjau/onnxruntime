@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(ONNXRUNTIME_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." CACHE PATH "onnxruntime source tree")
 set(ONNXRUNTIME_LIB_DIR "${ONNXRUNTIME_ROOT}/build/Debug" CACHE PATH "directory containing the onnxruntime shared library")
+set(FLATBUFFERS_INCLUDE_DIR "${ONNXRUNTIME_LIB_DIR}/_deps/flatbuffers-src/include" CACHE PATH
+    "flatbuffers headers of the version that generated onnxruntime/lora/adapter_format/adapter_schema.fbs.h")
 
 find_package(Python 3.12 COMPONENTS Interpreter Development.Module Development.SABIModule REQUIRED)
 execute_process(
@@ -19,9 +21,14 @@ find_library(ONNXRUNTIME_LIB onnxruntime PATHS "${ONNXRUNTIME_LIB_DIR}" NO_DEFAU
 set(PACKAGE_DIR "${CMAKE_CURRENT_BINARY_DIR}/onnxruntime_nb")
 
 nanobind_add_module(_C STABLE_ABI
+  cpp/adapter.cc
   cpp/module.cc
+  cpp/session.cc
   cpp/value.cc)
-target_include_directories(_C PRIVATE "${ONNXRUNTIME_ROOT}/include/onnxruntime/core/session")
+target_include_directories(_C PRIVATE
+  "${ONNXRUNTIME_ROOT}/include/onnxruntime/core/session"
+  "${ONNXRUNTIME_ROOT}/onnxruntime"
+  "${FLATBUFFERS_INCLUDE_DIR}")
 target_link_libraries(_C PRIVATE "${ONNXRUNTIME_LIB}")
 set_target_properties(_C PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PACKAGE_DIR}")
 

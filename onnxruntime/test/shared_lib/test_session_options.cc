@@ -1,14 +1,19 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <filesystem>
+
 #include "core/common/common.h"
 #include "core/framework/config_options.h"
 #include "core/graph/constants.h"
 #include "core/session/onnxruntime_cxx_api.h"
 #include "core/session/onnxruntime_session_options_config_keys.h"
 #include "gmock/gmock.h"
+#include "test/util/include/scoped_env_vars.h"
 
 using namespace onnxruntime;
+
+extern std::unique_ptr<Ort::Env> ort_env;
 
 TEST(CApiTest, session_options_graph_optimization_level) {
   // Test set optimization level succeeds when valid level is provided.
@@ -51,6 +56,85 @@ TEST(CApiTest, session_options_get_execution_mode) {
   options.SetExecutionMode(ORT_SEQUENTIAL);
   ASSERT_EQ(options.GetExecutionMode(), ORT_SEQUENTIAL);
 }
+
+TEST(CApiTest, session_options_getters_return_defaults) {
+  Ort::SessionOptions options;
+  EXPECT_EQ(options.GetIntraOpNumThreads(), 0);
+  EXPECT_EQ(options.GetInterOpNumThreads(), 0);
+  EXPECT_EQ(options.GetGraphOptimizationLevel(), ORT_ENABLE_ALL);
+  EXPECT_FALSE(options.GetProfilingEnabled());
+  EXPECT_EQ(options.GetProfileFilePrefix(), ORT_TSTR("onnxruntime_profile_"));
+  EXPECT_EQ(options.GetOptimizedModelFilePath(), ORT_TSTR(""));
+  EXPECT_TRUE(options.GetCpuMemArenaEnabled());
+  EXPECT_EQ(options.GetLogId(), "");
+  EXPECT_EQ(options.GetLogSeverityLevel(), -1);
+  EXPECT_EQ(options.GetLogVerbosityLevel(), 0);
+  EXPECT_TRUE(options.GetPerSessionThreadsEnabled());
+  EXPECT_FALSE(options.GetDeterministicComputeEnabled());
+}
+
+TEST(CApiTest, session_options_getters_return_set_values) {
+  Ort::SessionOptions options;
+  options.SetIntraOpNumThreads(3);
+  options.SetInterOpNumThreads(4);
+  options.EnableProfiling(ORT_TSTR("prefix"));
+  options.SetOptimizedModelFilePath(ORT_TSTR("optimized.onnx"));
+  options.DisableCpuMemArena();
+  options.SetLogId("log id");
+  options.SetLogSeverityLevel(3);
+  Ort::ThrowOnError(Ort::GetApi().SetSessionLogVerbosityLevel(options, 2));
+  options.DisablePerSessionThreads();
+  options.SetDeterministicCompute(true);
+
+  EXPECT_EQ(options.GetIntraOpNumThreads(), 3);
+  EXPECT_EQ(options.GetInterOpNumThreads(), 4);
+  EXPECT_TRUE(options.GetProfilingEnabled());
+  EXPECT_EQ(options.GetProfileFilePrefix(), ORT_TSTR("prefix"));
+  EXPECT_EQ(options.GetOptimizedModelFilePath(), ORT_TSTR("optimized.onnx"));
+  EXPECT_FALSE(options.GetCpuMemArenaEnabled());
+  EXPECT_EQ(options.GetLogId(), "log id");
+  EXPECT_EQ(options.GetLogSeverityLevel(), 3);
+  EXPECT_EQ(options.GetLogVerbosityLevel(), 2);
+  EXPECT_FALSE(options.GetPerSessionThreadsEnabled());
+  EXPECT_TRUE(options.GetDeterministicComputeEnabled());
+
+  for (auto level : {ORT_DISABLE_ALL, ORT_ENABLE_BASIC, ORT_ENABLE_EXTENDED, ORT_ENABLE_LAYOUT, ORT_ENABLE_ALL}) {
+    options.SetGraphOptimizationLevel(level);
+    EXPECT_EQ(options.GetGraphOptimizationLevel(), level);
+  }
+}
+
+TEST(CApiTest, session_get_session_options_returns_session_values) {
+  Ort::SessionOptions options;
+  options.SetIntraOpNumThreads(3);
+  options.AddConfigEntry(kOrtSessionOptionsConfigDisablePrepacking, "1");
+  Ort::Session session(*ort_env, ORT_TSTR("testdata/mul_1.onnx"), options);
+
+  Ort::SessionOptions session_options = session.GetSessionOptions();
+  EXPECT_EQ(session_options.GetIntraOpNumThreads(), 3);
+  EXPECT_EQ(session_options.GetConfigEntry(kOrtSessionOptionsConfigDisablePrepacking), "1");
+}
+
+#if !defined(ORT_MINIMAL_BUILD)
+// With ORT_LOAD_CONFIG_FROM_MODEL=1, the session uses the options in the model instead of those it was created with.
+TEST(CApiTest, session_get_session_options_returns_options_from_model) {
+  const test::ScopedEnvironmentVariables env_vars{test::EnvVarMap{{"ORT_LOAD_CONFIG_FROM_MODEL", "1"}}};
+  Ort::SessionOptions options;
+  options.SetIntraOpNumThreads(3);
+  options.SetLogId("log id");
+  Ort::Session session(*ort_env, ORT_TSTR("testdata/model_with_valid_ort_config_json.onnx"), options);
+
+  Ort::SessionOptions session_options = session.GetSessionOptions();
+  EXPECT_EQ(session_options.GetInterOpNumThreads(), 5);
+  EXPECT_EQ(session_options.GetIntraOpNumThreads(), 2);
+  EXPECT_EQ(session_options.GetGraphOptimizationLevel(), ORT_ENABLE_ALL);
+  EXPECT_TRUE(session_options.GetProfilingEnabled());
+  EXPECT_EQ(session_options.GetLogId(), "");
+
+  Ort::AllocatorWithDefaultOptions allocator;
+  std::filesystem::remove(session.EndProfilingAllocated(allocator).get());
+}
+#endif  // !defined(ORT_MINIMAL_BUILD)
 
 #if !defined(ORT_MINIMAL_BUILD) && !defined(ORT_EXTENDED_MINIMAL_BUILD) && !defined(ORT_NO_EXCEPTIONS)
 

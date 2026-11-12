@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// Conversion between tensors and Python objects.
+// Conversion between OrtValues and Python objects.
 
 #pragma once
 
@@ -18,19 +18,45 @@ namespace onnxruntime_nb {
 
 namespace nb = nanobind;
 
-// Read-only so that non-writeable numpy arrays are accepted; ORT does not write to inputs.
-using InputArray = nb::ndarray<nb::ro, nb::c_contig, nb::device::cpu>;
+// An OrtValue together with the Python object that owns its buffer, if the buffer is borrowed.
+struct Value {
+  // Keeps alive what `value` refers to, e.g. its buffer or allocator; declared first to outlive `value`.
+  nb::object owner;
+  Ort::Value value{nullptr};
+};
 
-// Returns a tensor that borrows the buffer of `array`; the caller keeps `array` alive.
-Ort::Value TensorFromArray(const InputArray& array);
+// An OrtMemoryInfo that is either owned or borrowed from `owner`.
+struct MemoryInfo {
+  Ort::MemoryInfo owned{nullptr};
+  const OrtMemoryInfo* ptr = nullptr;
+  nb::object owner;
 
-// Returns a new string tensor holding a copy of `strings`, which are given in row-major order.
-Ort::Value TensorFromStrings(const std::vector<std::string>& strings, const std::vector<int64_t>& shape);
+  explicit MemoryInfo(Ort::MemoryInfo info) : owned(std::move(info)), ptr(owned) {}
+  MemoryInfo(const OrtMemoryInfo* info, nb::object info_owner) : ptr(info), owner(std::move(info_owner)) {}
+  Ort::ConstMemoryInfo Get() const { return Ort::ConstMemoryInfo{ptr}; }
+};
 
-// Returns a numpy array that views the buffer of the numeric tensor `value`; `owner` keeps `value` alive.
-nb::object TensorToArray(Ort::Value& value, nb::handle owner);
+// Returns the process-wide environment, creating it on first use.
+Ort::Env& GetEnv();
 
-// Returns a copy of the elements of the string tensor `value` in row-major order.
-std::vector<std::string> TensorToStrings(const Ort::Value& value);
+// Returns the default allocator for `memory_info`: the default CPU allocator or a shared allocator of the environment.
+OrtAllocator* GetAllocator(const OrtMemoryInfo* memory_info);
+
+// Returns a copy of the elements of the string tensor or sparse tensor `value` in row-major order.
+std::vector<std::string> GetStrings(const OrtValue* value, size_t count);
+
+// Returns a numpy array that views `count` elements of `element_type` at `data`, owned by `owner`.
+nb::object ViewArray(void* data, const std::vector<int64_t>& shape, ONNXTensorElementDataType element_type,
+                     nb::handle owner);
+
+// Returns a nested tuple describing `type_info`, e.g. ('map', 7, ('tensor', 1, None)).
+nb::object DescribeType(Ort::ConstTypeInfo type_info);
+
+// Returns the member with value `value` of the enumeration `name` of `onnxruntime_nb._types`.
+inline nb::object PyEnum(const char* name, int value) {
+  return nb::module_::import_("onnxruntime_nb._types").attr(name)(value);
+}
+
+void BindValue(nb::module_& m);
 
 }  // namespace onnxruntime_nb

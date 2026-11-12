@@ -772,6 +772,21 @@ ORT_API_STATUS_IMPL(SessionGetTuningResults, _In_ const OrtSession* session, _In
 ORT_API_STATUS_IMPL(SessionSetTuningResults, _In_ OrtSession* session, _In_ const char* tuning_results_json,
                     _In_ bool error_on_invalid);
 ORT_API(const char*, GetBuildDeviceString);
+ORT_API_STATUS_IMPL(SessionGetSessionOptions, _In_ const OrtSession* session, _Outptr_ OrtSessionOptions** out);
+ORT_API_STATUS_IMPL(GetIntraOpNumThreads, _In_ const OrtSessionOptions* options, _Out_ int* out);
+ORT_API_STATUS_IMPL(GetInterOpNumThreads, _In_ const OrtSessionOptions* options, _Out_ int* out);
+ORT_API_STATUS_IMPL(GetSessionGraphOptimizationLevel, _In_ const OrtSessionOptions* options,
+                    _Out_ GraphOptimizationLevel* out);
+ORT_API_STATUS_IMPL(GetProfilingEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out);
+ORT_API_STATUS_IMPL(GetProfileFilePrefix, _In_ const OrtSessionOptions* options, _Outptr_ const ORTCHAR_T** out);
+ORT_API_STATUS_IMPL(GetOptimizedModelFilePath, _In_ const OrtSessionOptions* options,
+                    _Outptr_ const ORTCHAR_T** out);
+ORT_API_STATUS_IMPL(GetCpuMemArenaEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out);
+ORT_API_STATUS_IMPL(GetSessionLogId, _In_ const OrtSessionOptions* options, _Outptr_ const char** out);
+ORT_API_STATUS_IMPL(GetSessionLogSeverityLevel, _In_ const OrtSessionOptions* options, _Out_ int* out);
+ORT_API_STATUS_IMPL(GetSessionLogVerbosityLevel, _In_ const OrtSessionOptions* options, _Out_ int* out);
+ORT_API_STATUS_IMPL(GetPerSessionThreadsEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out);
+ORT_API_STATUS_IMPL(GetDeterministicComputeEnabled, _In_ const OrtSessionOptions* options, _Out_ int* out);
 
 ORT_API_STATUS_IMPL(CreateSharedAllocator, _In_ OrtEnv* env, _In_ const OrtEpDevice* ep_device,
                     _In_ OrtDeviceMemoryType mem_type, _In_ OrtAllocatorType allocator_type,

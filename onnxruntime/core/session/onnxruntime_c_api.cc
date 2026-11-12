@@ -4417,6 +4417,18 @@ ORT_API_STATUS_IMPL(OrtApis::SessionGetProviderOptions, _In_ const OrtSession* s
   API_IMPL_END
 }
 
+ORT_API_STATUS_IMPL(OrtApis::SessionGetSessionOptions, _In_ const OrtSession* session,
+                    _Outptr_ OrtSessionOptions** out) {
+  API_IMPL_BEGIN
+  ORT_API_RETURN_IF(session == nullptr, ORT_INVALID_ARGUMENT, "'session' parameter must not be NULL");
+  ORT_API_RETURN_IF(out == nullptr, ORT_INVALID_ARGUMENT, "'out' parameter must not be NULL");
+  auto options = std::make_unique<OrtSessionOptions>();
+  options->value = reinterpret_cast<const InferenceSession*>(session)->GetSessionOptions();
+  *out = options.release();
+  return nullptr;
+  API_IMPL_END
+}
+
 ORT_API_STATUS_IMPL(OrtApis::SessionGetTuningResults, _In_ const OrtSession* session, _Inout_ OrtAllocator* allocator,
                     _Outptr_ char** tuning_results_json) {
   API_IMPL_BEGIN
@@ -5112,6 +5124,19 @@ static constexpr OrtApi ort_api_1_to_29 = {
     &OrtApis::SessionGetTuningResults,
     &OrtApis::SessionSetTuningResults,
     &OrtApis::GetBuildDeviceString,
+    &OrtApis::SessionGetSessionOptions,
+    &OrtApis::GetIntraOpNumThreads,
+    &OrtApis::GetInterOpNumThreads,
+    &OrtApis::GetSessionGraphOptimizationLevel,
+    &OrtApis::GetProfilingEnabled,
+    &OrtApis::GetProfileFilePrefix,
+    &OrtApis::GetOptimizedModelFilePath,
+    &OrtApis::GetCpuMemArenaEnabled,
+    &OrtApis::GetSessionLogId,
+    &OrtApis::GetSessionLogSeverityLevel,
+    &OrtApis::GetSessionLogVerbosityLevel,
+    &OrtApis::GetPerSessionThreadsEnabled,
+    &OrtApis::GetDeterministicComputeEnabled,
 };
 
 // OrtApiBase can never change as there is no way to know what version of OrtApiBase is returned by OrtGetApiBase.

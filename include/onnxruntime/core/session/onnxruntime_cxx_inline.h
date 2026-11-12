@@ -1592,6 +1592,97 @@ inline ExecutionMode ConstSessionOptionsImpl<T>::GetExecutionMode() const {
 }
 
 template <typename T>
+inline KeyValuePairs ConstSessionOptionsImpl<T>::GetConfigEntries() const {
+  OrtKeyValuePairs* out = nullptr;
+  ThrowOnError(GetApi().GetSessionOptionsConfigEntries(this->p_, &out));
+  return KeyValuePairs{out};
+}
+
+template <typename T>
+inline int ConstSessionOptionsImpl<T>::GetIntraOpNumThreads() const {
+  int out = 0;
+  ThrowOnError(GetApi().GetIntraOpNumThreads(this->p_, &out));
+  return out;
+}
+
+template <typename T>
+inline int ConstSessionOptionsImpl<T>::GetInterOpNumThreads() const {
+  int out = 0;
+  ThrowOnError(GetApi().GetInterOpNumThreads(this->p_, &out));
+  return out;
+}
+
+template <typename T>
+inline GraphOptimizationLevel ConstSessionOptionsImpl<T>::GetGraphOptimizationLevel() const {
+  GraphOptimizationLevel out{};
+  ThrowOnError(GetApi().GetSessionGraphOptimizationLevel(this->p_, &out));
+  return out;
+}
+
+template <typename T>
+inline bool ConstSessionOptionsImpl<T>::GetProfilingEnabled() const {
+  int out = 0;
+  ThrowOnError(GetApi().GetProfilingEnabled(this->p_, &out));
+  return out != 0;
+}
+
+template <typename T>
+inline std::basic_string<ORTCHAR_T> ConstSessionOptionsImpl<T>::GetProfileFilePrefix() const {
+  const ORTCHAR_T* out = nullptr;
+  ThrowOnError(GetApi().GetProfileFilePrefix(this->p_, &out));
+  return out;
+}
+
+template <typename T>
+inline std::basic_string<ORTCHAR_T> ConstSessionOptionsImpl<T>::GetOptimizedModelFilePath() const {
+  const ORTCHAR_T* out = nullptr;
+  ThrowOnError(GetApi().GetOptimizedModelFilePath(this->p_, &out));
+  return out;
+}
+
+template <typename T>
+inline bool ConstSessionOptionsImpl<T>::GetCpuMemArenaEnabled() const {
+  int out = 0;
+  ThrowOnError(GetApi().GetCpuMemArenaEnabled(this->p_, &out));
+  return out != 0;
+}
+
+template <typename T>
+inline std::string ConstSessionOptionsImpl<T>::GetLogId() const {
+  const char* out = nullptr;
+  ThrowOnError(GetApi().GetSessionLogId(this->p_, &out));
+  return out;
+}
+
+template <typename T>
+inline int ConstSessionOptionsImpl<T>::GetLogSeverityLevel() const {
+  int out = 0;
+  ThrowOnError(GetApi().GetSessionLogSeverityLevel(this->p_, &out));
+  return out;
+}
+
+template <typename T>
+inline int ConstSessionOptionsImpl<T>::GetLogVerbosityLevel() const {
+  int out = 0;
+  ThrowOnError(GetApi().GetSessionLogVerbosityLevel(this->p_, &out));
+  return out;
+}
+
+template <typename T>
+inline bool ConstSessionOptionsImpl<T>::GetPerSessionThreadsEnabled() const {
+  int out = 0;
+  ThrowOnError(GetApi().GetPerSessionThreadsEnabled(this->p_, &out));
+  return out != 0;
+}
+
+template <typename T>
+inline bool ConstSessionOptionsImpl<T>::GetDeterministicComputeEnabled() const {
+  int out = 0;
+  ThrowOnError(GetApi().GetDeterministicComputeEnabled(this->p_, &out));
+  return out != 0;
+}
+
+template <typename T>
 inline SessionOptionsImpl<T>& SessionOptionsImpl<T>::SetIntraOpNumThreads(int intra_op_num_threads) {
   ThrowOnError(GetApi().SetIntraOpNumThreads(this->p_, intra_op_num_threads));
   return *this;
@@ -1983,7 +2074,7 @@ inline SessionOptionsImpl<T>& SessionOptionsImpl<T>::RegisterCustomOpsUsingFunct
 
 template <typename T>
 inline SessionOptionsImpl<T>& SessionOptionsImpl<T>::AddFreeDimensionOverride(const char* dim_denotation, int64_t dim_value) {
-  ThrowOnError(GetApi().AddFreeDimensionOverrideByName(this->p_, dim_denotation, dim_value));
+  ThrowOnError(GetApi().AddFreeDimensionOverride(this->p_, dim_denotation, dim_value));
   return *this;
 }
 
@@ -2177,6 +2268,13 @@ inline KeyValuePairs ConstSessionImpl<T>::GetProviderOptions(size_t index) const
   OrtKeyValuePairs* options = nullptr;
   ThrowOnError(GetApi().SessionGetProviderOptions(this->p_, index, &options));
   return KeyValuePairs{options};
+}
+
+template <typename T>
+inline SessionOptions ConstSessionImpl<T>::GetSessionOptions() const {
+  OrtSessionOptions* out = nullptr;
+  ThrowOnError(GetApi().SessionGetSessionOptions(this->p_, &out));
+  return SessionOptions{out};
 }
 
 template <typename T>
