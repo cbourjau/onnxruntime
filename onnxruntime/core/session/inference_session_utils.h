@@ -67,6 +67,10 @@ Status ParseTuningResultsFromModelMetadata(const onnxruntime::ModelMetadata& met
                                            /*out*/ bool& key_found,
                                            const logging::Logger& logger);
 
+// Tuning results as JSON, in the format of the "tuning_results" entry of the model metadata.
+std::string TuningResultsToJson(const std::vector<TuningResults>& results);
+Status TuningResultsFromJson(const std::string& results_json, /*out*/ std::vector<TuningResults>& results);
+
 #endif  // !defined(ORT_MINIMAL_BUILD)
 
 }  // namespace inference_session_utils

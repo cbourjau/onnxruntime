@@ -39,8 +39,10 @@
 #include "core/graph/onnx_protobuf.h"
 #include "core/providers/get_execution_providers.h"
 #include "core/session/abi_devices.h"
+#include "core/session/abi_key_value_pairs.h"
 #include "core/session/abi_session_options_impl.h"
 #include "core/session/allocator_adapters.h"
+#include "core/session/build_device.h"
 #include "core/session/compile_api.h"
 #include "core/session/environment.h"
 #include "core/session/ep_graph_assignment_info.h"
@@ -4352,6 +4354,108 @@ ORT_API_STATUS_IMPL(OrtApis::SetGlobalRandomSeed, _In_ int64_t seed) {
   API_IMPL_END
 }
 
+ORT_API_STATUS_IMPL(OrtApis::UpdateEnvWithCustomLogVerbosityLevel, _In_ OrtEnv* ort_env, _In_ int vlog_level) {
+  API_IMPL_BEGIN
+  ort_env->GetLoggingManager()->SetDefaultLoggerVerbosity(vlog_level);
+  return nullptr;
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::GetAllProviders, _Outptr_ const char* const** provider_names,
+                    _Out_ size_t* num_providers) {
+  API_IMPL_BEGIN
+  // The names are static, so pointers to them stay valid for the lifetime of the process.
+  static const std::vector<const char*> names = [] {
+    std::vector<const char*> result;
+    for (const std::string& name : GetAllExecutionProviderNames()) {
+      result.push_back(name.c_str());
+    }
+    return result;
+  }();
+  *provider_names = names.data();
+  *num_providers = names.size();
+  return nullptr;
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::SessionGetProviderCount, _In_ const OrtSession* session, _Out_ size_t* count) {
+  API_IMPL_BEGIN
+  *count = reinterpret_cast<const InferenceSession*>(session)->GetRegisteredProviderTypes().size();
+  return nullptr;
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::SessionGetProviderName, _In_ const OrtSession* session, _In_ size_t index,
+                    _Outptr_ const char** name) {
+  API_IMPL_BEGIN
+  const auto& providers = reinterpret_cast<const InferenceSession*>(session)->GetRegisteredProviderTypes();
+  if (index >= providers.size()) {
+    return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT, "execution provider index is out of range");
+  }
+  *name = providers[index].c_str();
+  return nullptr;
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::SessionGetProviderOptions, _In_ const OrtSession* session, _In_ size_t index,
+                    _Outptr_ OrtKeyValuePairs** options) {
+  API_IMPL_BEGIN
+  const auto* inference_session = reinterpret_cast<const InferenceSession*>(session);
+  const auto& providers = inference_session->GetRegisteredProviderTypes();
+  if (index >= providers.size()) {
+    return OrtApis::CreateStatus(ORT_INVALID_ARGUMENT, "execution provider index is out of range");
+  }
+  auto result = std::make_unique<OrtKeyValuePairs>();
+  const auto& all_options = inference_session->GetAllProviderOptions();
+  if (auto it = all_options.find(providers[index]); it != all_options.end()) {
+    for (const auto& [key, value] : it->second) {
+      result->Add(key, value);
+    }
+  }
+  *options = result.release();
+  return nullptr;
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::SessionGetTuningResults, _In_ const OrtSession* session, _Inout_ OrtAllocator* allocator,
+                    _Outptr_ char** tuning_results_json) {
+  API_IMPL_BEGIN
+#if !defined(ORT_MINIMAL_BUILD)
+  const auto* inference_session = reinterpret_cast<const InferenceSession*>(session);
+  *tuning_results_json =
+      StrDup(inference_session_utils::TuningResultsToJson(inference_session->GetTuningResults()), allocator);
+  return nullptr;
+#else
+  ORT_UNUSED_PARAMETER(session);
+  ORT_UNUSED_PARAMETER(allocator);
+  ORT_UNUSED_PARAMETER(tuning_results_json);
+  return OrtApis::CreateStatus(ORT_NOT_IMPLEMENTED, "SessionGetTuningResults is not supported in a minimal build.");
+#endif
+  API_IMPL_END
+}
+
+ORT_API_STATUS_IMPL(OrtApis::SessionSetTuningResults, _In_ OrtSession* session, _In_ const char* tuning_results_json,
+                    _In_ bool error_on_invalid) {
+  API_IMPL_BEGIN
+#if !defined(ORT_MINIMAL_BUILD)
+  std::vector<TuningResults> results;
+  ORT_API_RETURN_IF_STATUS_NOT_OK(inference_session_utils::TuningResultsFromJson(tuning_results_json, results));
+  ORT_API_RETURN_IF_STATUS_NOT_OK(
+      reinterpret_cast<InferenceSession*>(session)->SetTuningResults(results, error_on_invalid));
+  return nullptr;
+#else
+  ORT_UNUSED_PARAMETER(session);
+  ORT_UNUSED_PARAMETER(tuning_results_json);
+  ORT_UNUSED_PARAMETER(error_on_invalid);
+  return OrtApis::CreateStatus(ORT_NOT_IMPLEMENTED, "SessionSetTuningResults is not supported in a minimal build.");
+#endif
+  API_IMPL_END
+}
+
+ORT_API(const char*, OrtApis::GetBuildDeviceString) {
+  return BACKEND_DEVICE;
+}
+
 namespace {
 OrtStatus* GetInputOutputMemoryInfo(const OrtSession* ort_session,
                                     InferenceSession::SessionInputOutputType type,
@@ -5000,6 +5104,14 @@ static constexpr OrtApi ort_api_1_to_29 = {
     // End of Version 32 - DO NOT MODIFY ABOVE (see above text for more information)
 
     &OrtApis::SetGlobalRandomSeed,
+    &OrtApis::UpdateEnvWithCustomLogVerbosityLevel,
+    &OrtApis::GetAllProviders,
+    &OrtApis::SessionGetProviderCount,
+    &OrtApis::SessionGetProviderName,
+    &OrtApis::SessionGetProviderOptions,
+    &OrtApis::SessionGetTuningResults,
+    &OrtApis::SessionSetTuningResults,
+    &OrtApis::GetBuildDeviceString,
 };
 
 // OrtApiBase can never change as there is no way to know what version of OrtApiBase is returned by OrtGetApiBase.

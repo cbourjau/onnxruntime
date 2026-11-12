@@ -28,83 +28,11 @@ struct OrtStatus {
   char msg[1];  // a null-terminated string
 };
 
-#define BACKEND_DEVICE BACKEND_PROC BACKEND_DNNL BACKEND_OPENVINO BACKEND_OPENBLAS BACKEND_MIGRAPHX BACKEND_DML BACKEND_CANN BACKEND_WEBGPU
+#include "core/session/build_device.h"
 #include "core/session/onnxruntime_cxx_api.h"
 #include "core/providers/providers.h"
 #include "core/providers/provider_factory_creators.h"
 #include "core/providers/tensorrt/tensorrt_provider_options.h"
-
-#if defined(USE_CUDA)
-#define BACKEND_PROC "GPU"
-#else
-#define BACKEND_PROC "CPU"
-#endif
-
-#ifdef USE_DNNL
-#define BACKEND_DNNL "-DNNL"
-#else
-#define BACKEND_DNNL ""
-#endif
-
-#if defined(USE_MIGRAPHX) || defined(USE_MIGRAPHX_PROVIDER_INTERFACE)
-#define BACKEND_MIGRAPHX "-MIGRAPHX"
-#else
-#define BACKEND_MIGRAPHX ""
-#endif
-
-#if defined(USE_OPENVINO) || defined(USE_OPENVINO_PROVIDER_INTERFACE)
-#if OPENVINO_CONFIG_CPU
-#define BACKEND_OPENVINO "-OPENVINO_CPU"
-
-#elif OPENVINO_CONFIG_GPU
-#define BACKEND_OPENVINO "-OPENVINO_GPU"
-
-#elif OPENVINO_CONFIG_NPU
-#define BACKEND_OPENVINO "-OPENVINO_NPU"
-
-#elif OPENVINO_CONFIG_MULTI
-#define BACKEND_OPENVINO "-OPENVINO_MULTI"
-
-#elif OPENVINO_CONFIG_AUTO
-#define BACKEND_OPENVINO "-OPENVINO_AUTO"
-
-#elif OPENVINO_CONFIG_HETERO
-#define BACKEND_OPENVINO "-OPENVINO_HETERO"
-
-#elif OPENVINO_DISABLE_NPU_FALLBACK
-#define BACKEND_OPENVINO "-OPENVINO_DISABLE_NPU_FALLBACK"
-
-#else
-#define BACKEND_OPENVINO ""
-#endif  // OPENVINO_CONFIG_*
-
-#else
-#define BACKEND_OPENVINO ""
-#endif  // defined(USE_OPENVINO) || defined(USE_OPENVINO_PROVIDER_INTERFACE)
-
-#if USE_OPENBLAS
-#define BACKEND_OPENBLAS "-OPENBLAS"
-#else
-#define BACKEND_OPENBLAS ""
-#endif
-
-#if USE_DML
-#define BACKEND_DML "-DML"
-#else
-#define BACKEND_DML ""
-#endif
-
-#if USE_CANN
-#define BACKEND_CANN "-CANN"
-#else
-#define BACKEND_CANN ""
-#endif
-
-#if USE_WEBGPU
-#define BACKEND_WEBGPU "-WEBGPU"
-#else
-#define BACKEND_WEBGPU ""
-#endif
 
 #if defined(USE_CUDA) || defined(USE_CUDA_PROVIDER_INTERFACE)
 #include "core/providers/cuda/cuda_provider_factory.h"

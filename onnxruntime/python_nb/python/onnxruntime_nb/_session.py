@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import dataclasses
 import enum
-import functools
+import json
 import os
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -13,6 +13,8 @@ from typing import Any
 import numpy as np
 
 from . import _C
+from ._environment import env
+from ._exceptions import Fail, InvalidArgument
 
 
 class GraphOptimizationLevel(enum.IntEnum):
@@ -126,7 +128,7 @@ class InferenceSession:
         native_options = (sess_options or SessionOptions())._to_native()
         for name, options in _normalize_providers(providers, provider_options):
             native_options.append_execution_provider(name, options)
-        self._session = _C.Session(_env(), path, native_options)
+        self._session = _C.Session(env(), path, native_options)
 
     @property
     def input_names(self) -> list[str]:
@@ -136,17 +138,34 @@ class InferenceSession:
     def output_names(self) -> list[str]:
         return self._session.output_names
 
+    def get_providers(self) -> list[str]:
+        """Return the registered execution providers in priority order."""
+        return self._session.provider_names
+
+    def get_provider_options(self) -> dict[str, dict[str, str]]:
+        """Return the options of each registered execution provider."""
+        return {name: self._session.provider_options(i) for i, name in enumerate(self.get_providers())}
+
+    def get_tuning_results(self) -> list[dict[str, Any]]:
+        """Return the TunableOp tuning results, one dict with keys 'ep', 'results', and 'validators' per provider."""
+        return json.loads(self._session.tuning_results_json())
+
+    def set_tuning_results(self, results: Sequence[Mapping[str, Any]], *, error_on_invalid: bool = False) -> None:
+        """Load TunableOp tuning results in the format of `get_tuning_results`.
+
+        Invalid results raise if `error_on_invalid` is True and are skipped with a warning otherwise.
+        """
+        try:
+            self._session.set_tuning_results_json(json.dumps(list(results)), error_on_invalid)
+        except (Fail, InvalidArgument) as e:
+            # The pybind11 bindings raise RuntimeError here.
+            raise RuntimeError(str(e)) from e
+
     def run(self, output_names: Sequence[str] | None, input_feed: Mapping[str, Any]) -> list[np.ndarray]:
         """Run the model and return the requested outputs; all outputs if `output_names` is None or empty."""
         inputs = [_to_ort_value(value) for value in input_feed.values()]
         outputs = self._session.run(list(input_feed), inputs, list(output_names or self.output_names))
         return [_to_numpy(output) for output in outputs]
-
-
-@functools.cache
-def _env() -> _C.Env:
-    """Return the environment shared by all sessions; each session keeps it alive."""
-    return _C.Env()
 
 
 # Value of `ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING` in onnxruntime_c_api.h.

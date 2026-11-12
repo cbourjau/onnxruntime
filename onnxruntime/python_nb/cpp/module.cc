@@ -76,7 +76,16 @@ NB_MODULE(_C, m) {
         "Set the process-wide seed of random operators that have no `seed` attribute; "
         "call it before creating sessions to make their outputs reproducible.");
 
-  nb::class_<Ort::Env>(m, "Env").def(nb::init<>());
+  m.def("get_device", &Ort::GetBuildDeviceString,
+        "Return a string describing the devices this build targets, e.g. 'CPU' or 'GPU-DNNL'.");
+  m.def("get_all_providers", &Ort::GetAllProviders,
+        "Return the names of all execution providers that ONNX Runtime supports, in their default priority order.");
+
+  nb::class_<Ort::Env>(m, "Env")
+      .def(nb::init<>())
+      .def("update_log_severity_level",
+           [](Ort::Env& e, int level) { e.UpdateEnvWithCustomLogLevel(static_cast<OrtLoggingLevel>(level)); })
+      .def("update_log_verbosity_level", [](Ort::Env& e, int level) { e.UpdateEnvWithCustomLogVerbosityLevel(level); });
 
   using Options = Ort::SessionOptions;
   nb::class_<Options>(m, "SessionOptions")
@@ -128,5 +137,21 @@ NB_MODULE(_C, m) {
           nb::arg("env"), nb::arg("model_path"), nb::arg("options"), nb::keep_alive<1, 2>())
       .def_prop_ro("input_names", [](const Ort::Session& s) { return s.GetInputNames(); })
       .def_prop_ro("output_names", [](const Ort::Session& s) { return s.GetOutputNames(); })
+      .def_prop_ro("provider_names", [](const Ort::Session& s) { return s.GetProviderNames(); })
+      .def(
+          "provider_options",
+          [](const Ort::Session& s, size_t index) { return s.GetProviderOptions(index).GetKeyValuePairs(); },
+          nb::arg("index"))
+      .def("tuning_results_json",
+           [](const Ort::Session& s) {
+             Ort::AllocatorWithDefaultOptions allocator;
+             return std::string(s.GetTuningResultsAllocated(allocator).get());
+           })
+      .def(
+          "set_tuning_results_json",
+          [](Ort::Session& s, const std::string& json, bool error_on_invalid) {
+            s.SetTuningResults(json.c_str(), error_on_invalid);
+          },
+          nb::arg("json"), nb::arg("error_on_invalid"))
       .def("run", &Run, nb::arg("input_names"), nb::arg("inputs"), nb::arg("output_names"));
 }

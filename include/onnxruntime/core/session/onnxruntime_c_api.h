@@ -7786,6 +7786,121 @@ struct OrtApi {
    * \since Version 1.33.
    */
   ORT_API2_STATUS(SetGlobalRandomSeed, _In_ int64_t seed);
+
+  /** \brief Update the OrtEnv instance with a custom log verbosity level.
+   *
+   * The verbosity level filters verbose log messages, which are logged only if the log severity level is
+   * ORT_LOGGING_LEVEL_VERBOSE (see OrtApi::UpdateEnvWithCustomLogLevel). A message is logged if its verbosity level is
+   * less than or equal to `vlog_level`. Verbose log messages are only compiled into debug builds of ONNX Runtime.
+   * This level applies to the default logger only; sessions and runs log with their own loggers, whose verbosity
+   * levels are set with OrtApi::SetSessionLogVerbosityLevel and OrtApi::RunOptionsSetRunLogVerbosityLevel.
+   *
+   * \param[in] ort_env The OrtEnv instance being used.
+   * \param[in] vlog_level The log verbosity level.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(UpdateEnvWithCustomLogVerbosityLevel, _In_ OrtEnv* ort_env, _In_ int vlog_level);
+
+  /** \brief Get the names of all execution providers that ONNX Runtime supports.
+   *
+   * The list contains execution providers regardless of whether they are available in this build; see
+   * OrtApi::GetAvailableProviders for the available ones. The order of the names is the default priority order of the
+   * execution providers, from highest to lowest.
+   *
+   * \param[out] provider_names Array of the names. The array and the names are owned by ONNX Runtime, must not be
+   *                            freed, and are valid for the lifetime of the process.
+   * \param[out] num_providers The number of names.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(GetAllProviders, _Outptr_ const char* const** provider_names, _Out_ size_t* num_providers);
+
+  /** \brief Get the number of execution providers registered with a session.
+   *
+   * \param[in] session The OrtSession instance.
+   * \param[out] count The number of registered execution providers.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(SessionGetProviderCount, _In_ const OrtSession* session, _Out_ size_t* count);
+
+  /** \brief Get the name of an execution provider registered with a session.
+   *
+   * The execution providers are ordered by priority, from highest to lowest.
+   *
+   * \param[in] session The OrtSession instance.
+   * \param[in] index The index of the execution provider; less than the count from OrtApi::SessionGetProviderCount.
+   * \param[out] name The name. It is owned by the session and valid as long as the session exists.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(SessionGetProviderName, _In_ const OrtSession* session, _In_ size_t index,
+                  _Outptr_ const char** name);
+
+  /** \brief Get the options of an execution provider registered with a session.
+   *
+   * \param[in] session The OrtSession instance.
+   * \param[in] index The index of the execution provider; less than the count from OrtApi::SessionGetProviderCount.
+   * \param[out] options A copy of the options. Must be released with OrtApi::ReleaseKeyValuePairs.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(SessionGetProviderOptions, _In_ const OrtSession* session, _In_ size_t index,
+                  _Outptr_ OrtKeyValuePairs** options);
+
+  /** \brief Get the tuning results of the TunableOps of a session's execution providers.
+   *
+   * The tuning results are a JSON array with one object per execution provider that supports TunableOp, in the format
+   * of the `tuning_results` entry of the model metadata: `[{"ep": ..., "results": {...}, "validators": {...}}]`.
+   * Not supported in minimal builds.
+   *
+   * \param[in] session The OrtSession instance.
+   * \param[in] allocator The allocator used to allocate `tuning_results_json`.
+   * \param[out] tuning_results_json The tuning results as a null-terminated JSON string. Must be freed with `allocator`.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(SessionGetTuningResults, _In_ const OrtSession* session, _Inout_ OrtAllocator* allocator,
+                  _Outptr_ char** tuning_results_json);
+
+  /** \brief Set the tuning results of the TunableOps of a session's execution providers.
+   *
+   * Not supported in minimal builds.
+   *
+   * \param[in] session The OrtSession instance.
+   * \param[in] tuning_results_json The tuning results in the format of OrtApi::SessionGetTuningResults.
+   * \param[in] error_on_invalid If true, results that fail validation, e.g. those of an unknown execution provider,
+   *                             are an error. Otherwise they are skipped with a warning.
+   *
+   * \snippet{doc} snippets.dox OrtStatus Return Value
+   *
+   * \since Version 1.33.
+   */
+  ORT_API2_STATUS(SessionSetTuningResults, _In_ OrtSession* session, _In_ const char* tuning_results_json,
+                  _In_ bool error_on_invalid);
+
+  /** \brief Get a string describing the devices this build of ONNX Runtime targets.
+   *
+   * The string starts with "CPU" or "GPU" and lists further build options, e.g. "GPU-DNNL".
+   *
+   * \return The null-terminated string. It is owned by ONNX Runtime and must not be freed.
+   *
+   * \since Version 1.33.
+   */
+  const char*(ORT_API_CALL* GetBuildDeviceString)(void);
 };
 
 /*

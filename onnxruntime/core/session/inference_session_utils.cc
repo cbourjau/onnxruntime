@@ -132,6 +132,11 @@ void from_json(const json& j, TuningResults& trs) {
   j.at("validators").get_to(trs.validators);
 }
 
+// This function is called by nlohmann/json
+void to_json(json& j, const TuningResults& trs) {
+  j = json{{"ep", trs.ep}, {"results", trs.results}, {"validators", trs.validators}};
+}
+
 //---------------------------------------------------
 //--- end of session options related helpers ---
 //---------------------------------------------------
@@ -285,6 +290,23 @@ Status ParseTuningResultsFromModelMetadata(const onnxruntime::ModelMetadata& met
   }
 
   return Status::OK();
+}
+
+std::string TuningResultsToJson(const std::vector<TuningResults>& results) {
+  return json(results).dump();
+}
+
+Status TuningResultsFromJson(const std::string& results_json, std::vector<TuningResults>& results) {
+  Status status;
+  ORT_TRY {
+    results = json::parse(results_json).get<std::vector<TuningResults>>();
+  }
+  ORT_CATCH(const std::exception& e) {
+    ORT_HANDLE_EXCEPTION([&]() {
+      status = ORT_MAKE_STATUS(ONNXRUNTIME, INVALID_ARGUMENT, "Tuning results cannot be parsed: ", e.what());
+    });
+  }
+  return status;
 }
 
 }  // namespace inference_session_utils

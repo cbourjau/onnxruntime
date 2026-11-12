@@ -760,6 +760,18 @@ ORT_API_STATUS_IMPL(EpDevice_GetMemoryCapacity, _In_ const OrtEpDevice* ep_devic
                     _Out_opt_ uint64_t* total_memory_bytes, _Out_opt_ uint64_t* available_memory_bytes);
 
 ORT_API_STATUS_IMPL(SetGlobalRandomSeed, _In_ int64_t seed);
+ORT_API_STATUS_IMPL(UpdateEnvWithCustomLogVerbosityLevel, _In_ OrtEnv* ort_env, _In_ int vlog_level);
+ORT_API_STATUS_IMPL(GetAllProviders, _Outptr_ const char* const** provider_names, _Out_ size_t* num_providers);
+ORT_API_STATUS_IMPL(SessionGetProviderCount, _In_ const OrtSession* session, _Out_ size_t* count);
+ORT_API_STATUS_IMPL(SessionGetProviderName, _In_ const OrtSession* session, _In_ size_t index,
+                    _Outptr_ const char** name);
+ORT_API_STATUS_IMPL(SessionGetProviderOptions, _In_ const OrtSession* session, _In_ size_t index,
+                    _Outptr_ OrtKeyValuePairs** options);
+ORT_API_STATUS_IMPL(SessionGetTuningResults, _In_ const OrtSession* session, _Inout_ OrtAllocator* allocator,
+                    _Outptr_ char** tuning_results_json);
+ORT_API_STATUS_IMPL(SessionSetTuningResults, _In_ OrtSession* session, _In_ const char* tuning_results_json,
+                    _In_ bool error_on_invalid);
+ORT_API(const char*, GetBuildDeviceString);
 
 ORT_API_STATUS_IMPL(CreateSharedAllocator, _In_ OrtEnv* env, _In_ const OrtEpDevice* ep_device,
                     _In_ OrtDeviceMemoryType mem_type, _In_ OrtAllocatorType allocator_type,

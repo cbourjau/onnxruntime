@@ -988,6 +988,11 @@ inline Env& Env::DisableTelemetryEvents() {
   return *this;
 }
 
+inline Env& Env::UpdateEnvWithCustomLogVerbosityLevel(int vlog_level) {
+  ThrowOnError(GetApi().UpdateEnvWithCustomLogVerbosityLevel(p_, vlog_level));
+  return *this;
+}
+
 inline Env& Env::UpdateEnvWithCustomLogLevel(OrtLoggingLevel log_severity_level) {
   ThrowOnError(GetApi().UpdateEnvWithCustomLogLevel(p_, log_severity_level));
   return *this;
@@ -2154,6 +2159,34 @@ inline uint64_t ConstSessionImpl<T>::GetProfilingStartTimeNs() const {
 }
 
 template <typename T>
+inline std::vector<std::string> ConstSessionImpl<T>::GetProviderNames() const {
+  size_t count = 0;
+  ThrowOnError(GetApi().SessionGetProviderCount(this->p_, &count));
+  std::vector<std::string> names;
+  names.reserve(count);
+  for (size_t i = 0; i < count; ++i) {
+    const char* name = nullptr;
+    ThrowOnError(GetApi().SessionGetProviderName(this->p_, i, &name));
+    names.emplace_back(name);
+  }
+  return names;
+}
+
+template <typename T>
+inline KeyValuePairs ConstSessionImpl<T>::GetProviderOptions(size_t index) const {
+  OrtKeyValuePairs* options = nullptr;
+  ThrowOnError(GetApi().SessionGetProviderOptions(this->p_, index, &options));
+  return KeyValuePairs{options};
+}
+
+template <typename T>
+inline AllocatedStringPtr ConstSessionImpl<T>::GetTuningResultsAllocated(OrtAllocator* allocator) const {
+  char* out = nullptr;
+  ThrowOnError(GetApi().SessionGetTuningResults(this->p_, allocator, &out));
+  return AllocatedStringPtr(out, detail::AllocatedFree(allocator));
+}
+
+template <typename T>
 inline ModelMetadata ConstSessionImpl<T>::GetModelMetadata() const {
   OrtModelMetadata* out;
   ThrowOnError(GetApi().SessionGetModelMetadata(this->p_, &out));
@@ -2277,6 +2310,11 @@ inline AllocatedStringPtr SessionImpl<T>::EndProfilingAllocated(OrtAllocator* al
   char* out = nullptr;
   ThrowOnError(GetApi().SessionEndProfiling(this->p_, allocator, &out));
   return AllocatedStringPtr(out, detail::AllocatedFree(allocator));
+}
+
+template <typename T>
+inline void SessionImpl<T>::SetTuningResults(const char* tuning_results_json, bool error_on_invalid) {
+  ThrowOnError(GetApi().SessionSetTuningResults(this->p_, tuning_results_json, error_on_invalid));
 }
 
 template <typename T>
@@ -3543,6 +3581,10 @@ inline std::string GetBuildInfoString() {
   return GetApi().GetBuildInfoString();
 }
 
+inline std::string GetBuildDeviceString() {
+  return GetApi().GetBuildDeviceString();
+}
+
 inline std::vector<std::string> GetAvailableProviders() {
   char** providers;
   int len;
@@ -3560,6 +3602,13 @@ inline std::vector<std::string> GetAvailableProviders() {
     available_providers.emplace_back(providers[i]);
   }
   return available_providers;
+}
+
+inline std::vector<std::string> GetAllProviders() {
+  const char* const* names = nullptr;
+  size_t count = 0;
+  ThrowOnError(GetApi().GetAllProviders(&names, &count));
+  return std::vector<std::string>(names, names + count);
 }
 
 inline void SetGlobalRandomSeed(int64_t seed) {

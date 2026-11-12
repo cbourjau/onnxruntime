@@ -96,6 +96,7 @@ Status CreateInferencePybindStateModule(py::module& m) {
   return Status::OK();
 }
 
+// The build system does not define USE_MPI, so this is false unless USE_MPI is passed to the compiler explicitly.
 #if defined(USE_MPI) && defined(ORT_USE_NCCL)
 static constexpr bool HAS_COLLECTIVE_OPS = true;
 #else

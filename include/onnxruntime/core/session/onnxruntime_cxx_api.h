@@ -202,11 +202,24 @@ std::string GetVersionString();
 std::string GetBuildInfoString();
 
 /// <summary>
+/// This is a C++ wrapper for OrtApi::GetBuildDeviceString().
+/// </summary>
+/// <returns>string describing the devices this build targets, e.g. "CPU" or "GPU-DNNL"</returns>
+std::string GetBuildDeviceString();
+
+/// <summary>
 /// This is a C++ wrapper for OrtApi::GetAvailableProviders() and
 /// returns a vector of strings representing the available execution providers.
 /// </summary>
 /// <returns>vector of strings</returns>
 std::vector<std::string> GetAvailableProviders();
+
+/// <summary>
+/// This is a C++ wrapper for OrtApi::GetAllProviders() and returns the names of all execution providers that
+/// ONNX Runtime supports, in their default priority order.
+/// </summary>
+/// <returns>vector of strings</returns>
+std::vector<std::string> GetAllProviders();
 
 /// <summary>
 /// This is a C++ wrapper for OrtApi::SetGlobalRandomSeed() that throws on error.
@@ -1422,6 +1435,7 @@ struct Env : detail::Base<OrtEnv> {
   Env& DisableTelemetryEvents();  ///< Wraps OrtApi::DisableTelemetryEvents
 
   Env& UpdateEnvWithCustomLogLevel(OrtLoggingLevel log_severity_level);  ///< Wraps OrtApi::UpdateEnvWithCustomLogLevel
+  Env& UpdateEnvWithCustomLogVerbosityLevel(int vlog_level);             ///< Wraps OrtApi::UpdateEnvWithCustomLogVerbosityLevel
 
   Env& CreateAndRegisterAllocator(const OrtMemoryInfo* mem_info, const OrtArenaCfg* arena_cfg);  ///< Wraps OrtApi::CreateAndRegisterAllocator
 
@@ -2035,6 +2049,13 @@ struct ConstSessionImpl : Base<T> {
   uint64_t GetProfilingStartTimeNs() const;  ///< Wraps OrtApi::SessionGetProfilingStartTimeNs
   ModelMetadata GetModelMetadata() const;    ///< Wraps OrtApi::SessionGetModelMetadata
 
+  /// Names of the registered execution providers in priority order.
+  /// Wraps OrtApi::SessionGetProviderCount and OrtApi::SessionGetProviderName.
+  std::vector<std::string> GetProviderNames() const;
+  KeyValuePairs GetProviderOptions(size_t index) const;  ///< Wraps OrtApi::SessionGetProviderOptions
+  /// Tuning results as JSON; wraps OrtApi::SessionGetTuningResults.
+  AllocatedStringPtr GetTuningResultsAllocated(OrtAllocator* allocator) const;
+
   TypeInfo GetInputTypeInfo(size_t index) const;                   ///< Wraps OrtApi::SessionGetInputTypeInfo
   TypeInfo GetOutputTypeInfo(size_t index) const;                  ///< Wraps OrtApi::SessionGetOutputTypeInfo
   TypeInfo GetOverridableInitializerTypeInfo(size_t index) const;  ///< Wraps OrtApi::SessionGetOverridableInitializerTypeInfo
@@ -2113,6 +2134,9 @@ struct SessionImpl : ConstSessionImpl<T> {
    *  The OrtAllocator instances must be valid at the point of memory release.
    */
   AllocatedStringPtr EndProfilingAllocated(OrtAllocator* allocator);  ///< Wraps OrtApi::SessionEndProfiling
+
+  /// Wraps OrtApi::SessionSetTuningResults; `tuning_results_json` is in the format of GetTuningResultsAllocated.
+  void SetTuningResults(const char* tuning_results_json, bool error_on_invalid);
 
   /** \brief Set DynamicOptions for EPs (Execution Providers)
    *

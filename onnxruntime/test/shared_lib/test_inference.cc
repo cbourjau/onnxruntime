@@ -3610,6 +3610,55 @@ TEST(CApiTest, get_build_info_string) {
   ASSERT_FALSE(build_info_string.empty());
 }
 
+TEST(CApiTest, GetAllProviders) {
+  std::vector<std::string> all_providers = Ort::GetAllProviders();
+  for (const std::string& provider : Ort::GetAvailableProviders()) {
+    EXPECT_NE(std::find(all_providers.begin(), all_providers.end(), provider), all_providers.end()) << provider;
+  }
+}
+
+TEST(CApiTest, SessionGetProviders) {
+  Ort::SessionOptions options;
+  options.AppendExecutionProvider("CPUExecutionProvider");
+  Ort::Session session(*ort_env, ORT_TSTR("testdata/mul_1.onnx"), options);
+  EXPECT_EQ(session.GetProviderNames(), std::vector<std::string>{"CPUExecutionProvider"});
+  EXPECT_NO_THROW(session.GetProviderOptions(0));
+  try {
+    session.GetProviderOptions(1);
+    FAIL() << "expected an exception for an index out of range";
+  } catch (const Ort::Exception& e) {
+    EXPECT_EQ(e.GetOrtErrorCode(), ORT_INVALID_ARGUMENT);
+  }
+}
+
+TEST(CApiTest, SessionTuningResults) {
+  // The CPU execution provider has no TunableOps, so its tuning results are empty.
+  Ort::Session session(*ort_env, ORT_TSTR("testdata/mul_1.onnx"), Ort::SessionOptions{});
+  Ort::AllocatorWithDefaultOptions allocator;
+  EXPECT_STREQ(session.GetTuningResultsAllocated(allocator).get(), "[]");
+
+  const char* unknown_ep = R"([{"ep": "UnknownEP", "results": {}, "validators": {}}])";
+  EXPECT_NO_THROW(session.SetTuningResults(unknown_ep, /*error_on_invalid*/ false));
+  EXPECT_THROW(session.SetTuningResults(unknown_ep, /*error_on_invalid*/ true), Ort::Exception);
+  try {
+    session.SetTuningResults("not json", /*error_on_invalid*/ false);
+    FAIL() << "expected an exception for invalid JSON";
+  } catch (const Ort::Exception& e) {
+    EXPECT_EQ(e.GetOrtErrorCode(), ORT_INVALID_ARGUMENT);
+  }
+}
+
+TEST(CApiTest, GetBuildDeviceString) {
+  std::string device = Ort::GetBuildDeviceString();
+  EXPECT_TRUE(device.rfind("CPU", 0) == 0 || device.rfind("GPU", 0) == 0) << device;
+}
+
+TEST(CApiTest, UpdateEnvWithCustomLogVerbosityLevel) {
+  // The effect on log output is not observable here: the process-wide environment logs to stderr.
+  ort_env->UpdateEnvWithCustomLogVerbosityLevel(1);
+  ort_env->UpdateEnvWithCustomLogVerbosityLevel(0);
+}
+
 TEST(CApiTest, SetGlobalRandomSeed) {
   // The model sums the outputs of RandomUniform nodes with and without a `seed` attribute.
   auto run_with_seed = [](int64_t seed) {

@@ -227,3 +227,57 @@ def test_set_seed_determines_output(random_model_path):
     first = random_output(onnxruntime_nb, random_model_path, 42)
     np.testing.assert_array_equal(random_output(onnxruntime_nb, random_model_path, 42), first)
     assert not np.array_equal(random_output(onnxruntime_nb, random_model_path, 43), first)
+
+
+def test_get_all_providers_matches_pybind():
+    assert onnxruntime_nb.get_all_providers() == onnxruntime.get_all_providers()
+
+
+@pytest.mark.parametrize("severity", [-1, 5])
+def test_invalid_logger_severity_raises(severity):
+    with pytest.raises(RuntimeError):
+        onnxruntime.set_default_logger_severity(severity)
+    with pytest.raises(RuntimeError):
+        onnxruntime_nb.set_default_logger_severity(severity)
+
+
+@pytest.mark.parametrize(("severity", "logs_info"), [(1, True), (3, False)])
+def test_logger_severity_filters_messages(model_path, capfd, severity, logs_info):
+    onnxruntime_nb.set_default_logger_severity(severity)
+    try:
+        onnxruntime_nb.InferenceSession(model_path)
+    finally:
+        onnxruntime_nb.set_default_logger_severity(2)
+    assert ("[I:onnxruntime:" in capfd.readouterr().err) == logs_info
+
+
+def test_set_logger_verbosity():
+    # Verbose messages of sessions and runs are filtered by their own options; no effect is observable here.
+    onnxruntime_nb.set_default_logger_verbosity(1)
+    onnxruntime_nb.set_default_logger_verbosity(0)
+
+
+def test_get_device_matches_pybind():
+    assert onnxruntime_nb.get_device() == onnxruntime.get_device()
+
+
+@pytest.mark.parametrize("providers", [None, ["CPUExecutionProvider"]])
+def test_providers_match_pybind(model_path, providers):
+    expected = onnxruntime.InferenceSession(model_path, providers=providers)
+    actual = onnxruntime_nb.InferenceSession(model_path, providers=providers)
+    assert actual.get_providers() == expected.get_providers()
+    assert actual.get_provider_options() == expected.get_provider_options()
+
+
+def test_tuning_results_match_pybind(model_path):
+    expected = onnxruntime.InferenceSession(model_path).get_tuning_results()
+    assert onnxruntime_nb.InferenceSession(model_path).get_tuning_results() == expected
+
+
+@pytest.mark.parametrize("module", [onnxruntime, onnxruntime_nb])
+def test_set_tuning_results_of_unknown_provider(model_path, module):
+    session = module.InferenceSession(model_path)
+    results = [{"ep": "UnknownEP", "results": {}, "validators": {}}]
+    session.set_tuning_results(results)
+    with pytest.raises(RuntimeError, match="Cannot find execution provider UnknownEP"):
+        session.set_tuning_results(results, error_on_invalid=True)
