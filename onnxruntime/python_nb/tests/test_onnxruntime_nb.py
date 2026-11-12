@@ -10,8 +10,9 @@ from onnx import TensorProto, helper
 import onnxruntime
 
 
-def save_model(path, nodes, inputs, outputs):
-    onnx.save(helper.make_model(helper.make_graph(nodes, "g", inputs, outputs)), path)
+def save_model(path, nodes, inputs, outputs, opset=None):
+    opset_imports = None if opset is None else [helper.make_opsetid("", opset)]
+    onnx.save(helper.make_model(helper.make_graph(nodes, "g", inputs, outputs), opset_imports=opset_imports), path)
     return path
 
 
@@ -201,3 +202,28 @@ def test_unknown_provider_raises(model_path):
 def test_provider_options_length_mismatch_raises(model_path):
     with pytest.raises(ValueError, match="same length"):
         onnxruntime_nb.InferenceSession(model_path, providers=["CPUExecutionProvider"], provider_options=[{}, {}])
+
+
+@pytest.fixture
+def random_model_path(tmp_path):
+    """Model without inputs whose output `y` comes from a RandomUniform node without a `seed` attribute."""
+    y = helper.make_tensor_value_info("y", TensorProto.FLOAT, [5])
+    node = helper.make_node("RandomUniform", [], ["y"], shape=[5])
+    # The CPU execution provider implements RandomUniform up to opset 21.
+    return save_model(tmp_path / "random.onnx", [node], [], [y], opset=21)
+
+
+def random_output(module, path, seed):
+    module.set_seed(seed)
+    return module.InferenceSession(path).run(None, {})[0]
+
+
+def test_set_seed_matches_pybind(random_model_path):
+    expected = random_output(onnxruntime, random_model_path, 42)
+    np.testing.assert_array_equal(random_output(onnxruntime_nb, random_model_path, 42), expected)
+
+
+def test_set_seed_determines_output(random_model_path):
+    first = random_output(onnxruntime_nb, random_model_path, 42)
+    np.testing.assert_array_equal(random_output(onnxruntime_nb, random_model_path, 42), first)
+    assert not np.array_equal(random_output(onnxruntime_nb, random_model_path, 43), first)

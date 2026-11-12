@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import dataclasses
 import enum
+import functools
 import os
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -125,7 +126,7 @@ class InferenceSession:
         native_options = (sess_options or SessionOptions())._to_native()
         for name, options in _normalize_providers(providers, provider_options):
             native_options.append_execution_provider(name, options)
-        self._session = _C.Session(path, native_options)
+        self._session = _C.Session(_env(), path, native_options)
 
     @property
     def input_names(self) -> list[str]:
@@ -137,20 +138,35 @@ class InferenceSession:
 
     def run(self, output_names: Sequence[str] | None, input_feed: Mapping[str, Any]) -> list[np.ndarray]:
         """Run the model and return the requested outputs; all outputs if `output_names` is None or empty."""
-        arrays = {}
-        strings = {}
-        for name, value in input_feed.items():
-            array = np.asarray(value)
-            if array.dtype.kind in "OUS":
-                elements = [x.decode() if isinstance(x, bytes) else str(x) for x in array.ravel().tolist()]
-                strings[name] = (elements, list(array.shape))
-            else:
-                arrays[name] = array if array.flags.c_contiguous else array.copy(order="C")
-        outputs = self._session.run(list(output_names or self.output_names), arrays, strings)
-        return [_string_array(*output) if isinstance(output, tuple) else output for output in outputs]
+        inputs = [_to_ort_value(value) for value in input_feed.values()]
+        outputs = self._session.run(list(input_feed), inputs, list(output_names or self.output_names))
+        return [_to_numpy(output) for output in outputs]
 
 
-def _string_array(elements: list[str], shape: list[int]) -> np.ndarray:
-    array = np.empty(len(elements), dtype=object)
-    array[:] = elements
-    return array.reshape(shape)
+@functools.cache
+def _env() -> _C.Env:
+    """Return the environment shared by all sessions; each session keeps it alive."""
+    return _C.Env()
+
+
+# Value of `ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING` in onnxruntime_c_api.h.
+_STRING_ELEMENT_TYPE = 8
+
+
+def _to_ort_value(value: Any) -> _C.OrtValue:
+    """Return a tensor that borrows the buffer of numeric arrays and copies string arrays."""
+    array = np.asarray(value)
+    if array.dtype.kind in "OUS":
+        elements = [x.decode() if isinstance(x, bytes) else str(x) for x in array.ravel().tolist()]
+        return _C.OrtValue.from_strings(elements, list(array.shape))
+    return _C.OrtValue.from_array(array if array.flags.c_contiguous else array.copy(order="C"))
+
+
+def _to_numpy(value: _C.OrtValue) -> np.ndarray:
+    """Return a view of numeric tensors and an object array copy of string tensors."""
+    if value.element_type != _STRING_ELEMENT_TYPE:
+        return value.numpy()
+    strings = value.strings()
+    array = np.empty(len(strings), dtype=object)
+    array[:] = strings
+    return array.reshape(value.shape)

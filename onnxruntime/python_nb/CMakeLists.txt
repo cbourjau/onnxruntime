@@ -20,9 +20,7 @@ set(PACKAGE_DIR "${CMAKE_CURRENT_BINARY_DIR}/onnxruntime_nb")
 
 nanobind_add_module(_C STABLE_ABI
   cpp/module.cc
-  cpp/ort_api.cc
-  cpp/session.cc
-  cpp/tensor.cc)
+  cpp/value.cc)
 target_include_directories(_C PRIVATE "${ONNXRUNTIME_ROOT}/include/onnxruntime/core/session")
 target_link_libraries(_C PRIVATE "${ONNXRUNTIME_LIB}")
 set_target_properties(_C PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${PACKAGE_DIR}")

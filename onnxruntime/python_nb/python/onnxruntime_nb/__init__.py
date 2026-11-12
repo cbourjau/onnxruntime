@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 """Prototype Python bindings for ONNX Runtime, built with nanobind on top of the public C API."""
 
-from ._C import get_available_providers
+from ._C import get_available_providers, set_seed
 from ._exceptions import (
     DeviceReset,
     EngineError,
@@ -43,4 +43,5 @@ __all__ = [
     "RuntimeException",
     "SessionOptions",
     "get_available_providers",
+    "set_seed",
 ]
