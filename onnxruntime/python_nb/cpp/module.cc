@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// Native part of the onnxruntime_nb package: bindings of the public C and C++ API.
+// Native part of the onnxruntime package: bindings of the public C and C++ API.
 // Conveniences, defaults, and exception classes live in the Python package.
 
 #include <exception>
@@ -36,13 +36,13 @@ namespace {
 Ort::Env* g_env = nullptr;
 std::optional<std::pair<int, int>> g_global_thread_pool_sizes;
 
-// Raises the Python exception class that `onnxruntime_nb._exceptions` assigns to the error code.
+// Raises the Python exception class that `onnxruntime._exceptions` assigns to the error code.
 void RegisterExceptionTranslator() {
   nb::register_exception_translator([](const std::exception_ptr& p, void*) {
     try {
       std::rethrow_exception(p);
     } catch (const Ort::Exception& e) {
-      nb::object type = nb::module_::import_("onnxruntime_nb._exceptions")
+      nb::object type = nb::module_::import_("onnxruntime._exceptions")
                             .attr("exception_class")(static_cast<int>(e.GetOrtErrorCode()));
       PyErr_SetString(type.ptr(), e.what());
     }

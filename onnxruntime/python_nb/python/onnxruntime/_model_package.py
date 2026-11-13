@@ -7,7 +7,7 @@ from __future__ import annotations
 import enum
 import os
 
-from . import _C
+from .capi import _C
 from ._options import SessionOptions
 from ._session import InferenceSession
 

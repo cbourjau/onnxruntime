@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import pathlib
 
-from . import _C
+from .capi import _C
 from ._value import OrtValue
 
 

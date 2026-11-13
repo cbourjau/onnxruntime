@@ -8,7 +8,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from . import _C
+from .capi import _C
 from ._options import SessionOptions
 from ._types import GraphOptimizationLevel, OrtCompileApiFlags
 from ._value import OrtValue

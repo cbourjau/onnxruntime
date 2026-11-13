@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from . import _C
+from .capi import _C
 from ._exceptions import EPFail
 from ._options import RunOptions, SessionOptions
 from ._types import ONNX_TYPE_TENSOR, STRING, element_type, type_string

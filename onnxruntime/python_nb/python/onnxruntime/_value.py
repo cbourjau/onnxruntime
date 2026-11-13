@@ -10,7 +10,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from . import _C
+from .capi import _C
 from ._types import (
     ONNX_TYPE_MAP,
     ONNX_TYPE_SEQUENCE,

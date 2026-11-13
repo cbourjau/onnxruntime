@@ -8,7 +8,7 @@ import os
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from . import _C
+from .capi import _C
 from ._types import ExecutionMode, ExecutionOrder, GraphOptimizationLevel, OrtExecutionProviderDevicePolicy
 from ._value import OrtValue
 

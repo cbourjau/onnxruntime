@@ -2,4 +2,4 @@
 # Licensed under the MIT License.
 """The public API at the import path of the native module of the pybind11 bindings, e.g. for its exceptions."""
 
-from onnxruntime_nb import *  # noqa: F403
+from onnxruntime import *  # noqa: F403

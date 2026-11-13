@@ -208,7 +208,7 @@ void RunAsyncDone(void* user_data, OrtValue** outputs, size_t num_outputs, OrtSt
   try {
     run->callback(std::move(values), error);
   } catch (nb::python_error& e) {
-    e.discard_as_unraisable("onnxruntime_nb.InferenceSession.run_async callback");
+    e.discard_as_unraisable("onnxruntime.InferenceSession.run_async callback");
   }
   run->inputs.reset();
   run->callback.reset();

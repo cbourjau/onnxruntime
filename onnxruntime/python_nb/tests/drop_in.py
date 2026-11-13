@@ -1,22 +1,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-"""Pytest plugin that runs the test suite of the pybind11 bindings against `onnxruntime_nb`.
+"""Pytest plugin that runs the test suite of the pybind11 bindings against the installed nanobind bindings.
 
-It makes `import onnxruntime` import `onnxruntime_nb`. The pure-Python subpackages of `onnxruntime`, such as
-`onnxruntime.backend`, are taken from the `onnxruntime` package that is importable from the working directory.
+It provides stand-ins for the private names of the pybind11 bindings that the test modules import, and skips the
+tests that exercise them.
 """
 
 import importlib
-import importlib.util
-import sys
-
-import onnxruntime_nb
-
-_spec = importlib.util.find_spec("onnxruntime")
-if _spec is None or _spec.submodule_search_locations is None:
-    raise RuntimeError("the 'onnxruntime' package must be importable to provide its pure-Python subpackages")
-onnxruntime_nb.__path__.append(_spec.submodule_search_locations[0])
-sys.modules["onnxruntime"] = onnxruntime_nb
 
 # Private names that the test modules import at module level.
 _OrtValueVector = type("OrtValueVector", (list,), {})
@@ -59,6 +49,7 @@ def pytest_collection_modifyitems(config, items):
     import pytest  # noqa: PLC0415
 
     for item in items:
-        reason = SKIPPED_TESTS.get(item.nodeid.split("[")[0])
+        # Node IDs are relative to pytest's root directory, which depends on the working directory.
+        reason = SKIPPED_TESTS.get(item.nodeid.split("[")[0].rsplit("/", 1)[-1])
         if reason is not None:
             item.add_marker(pytest.mark.skip(reason=reason))

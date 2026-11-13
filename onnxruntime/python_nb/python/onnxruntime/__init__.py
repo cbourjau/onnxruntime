@@ -7,9 +7,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from . import _C
+from .capi import _C
 from ._adapter import AdapterFormat, LoraAdapter
-from ._C import (
+from .capi._C import (
     OrtEpContextData,
     OrtEpContextDataBuffer,
     OrtEpDevice,

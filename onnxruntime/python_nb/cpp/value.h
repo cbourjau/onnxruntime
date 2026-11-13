@@ -52,9 +52,9 @@ nb::object ViewArray(void* data, const std::vector<int64_t>& shape, ONNXTensorEl
 // Returns a nested tuple describing `type_info`, e.g. ('map', 7, ('tensor', 1, None)).
 nb::object DescribeType(Ort::ConstTypeInfo type_info);
 
-// Returns the member with value `value` of the enumeration `name` of `onnxruntime_nb._types`.
+// Returns the member with value `value` of the enumeration `name` of `onnxruntime._types`.
 inline nb::object PyEnum(const char* name, int value) {
-  return nb::module_::import_("onnxruntime_nb._types").attr(name)(value);
+  return nb::module_::import_("onnxruntime._types").attr(name)(value);
 }
 
 void BindValue(nb::module_& m);
